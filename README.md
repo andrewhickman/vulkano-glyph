@@ -6,4 +6,4 @@
 [di]: https://docs.rs/vulkano-glyph/badge.svg
 [dl]: https://docs.rs/vulkano-glyph/
 
-# Fast text rendering with vulkano
+# Text rendering with vulkano

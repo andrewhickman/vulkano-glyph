@@ -1,0 +1,152 @@
+use std::{error, fmt, result};
+
+use rusttype::gpu_cache::{CacheReadErr, CacheWriteErr};
+use vulkano::command_buffer::{CopyBufferImageError, DrawError};
+use vulkano::descriptor::descriptor_set::{
+    PersistentDescriptorSetBuildError, PersistentDescriptorSetError,
+};
+use vulkano::image::ImageCreationError;
+use vulkano::memory::DeviceMemoryAllocError;
+use vulkano::pipeline::GraphicsPipelineCreationError;
+use vulkano::sampler::SamplerCreationError;
+use vulkano::OomError;
+
+pub type Result<T> = result::Result<T, Error>;
+
+#[derive(Debug)]
+pub struct Error(Box<ErrorKind>);
+
+impl Error {
+    pub fn new(kind: impl Into<Box<ErrorKind>>) -> Self {
+        Error(kind.into())
+    }
+
+    pub fn kind(&self) -> &ErrorKind {
+        &self.0
+    }
+
+    pub fn into_kind(self) -> ErrorKind {
+        *self.0
+    }
+}
+
+#[derive(Debug)]
+pub enum ErrorKind {
+    CacheRead(CacheReadErr),
+    CacheWrite(CacheWriteErr),
+    CopyBufferImage(CopyBufferImageError),
+    Draw(DrawError),
+    DeviceMemoryAlloc(DeviceMemoryAllocError),
+    SamplerCreation(SamplerCreationError),
+    ImageCreation(ImageCreationError),
+    GraphicsPipelineCreation(GraphicsPipelineCreationError),
+    PersistentDescriptorSet(PersistentDescriptorSetError),
+    PersistentDescriptorSetBuild(PersistentDescriptorSetBuildError),
+    Oom(OomError),
+    #[doc(hidden)]
+    __NonExhaustive,
+}
+
+impl From<CacheReadErr> for Error {
+    fn from(err: CacheReadErr) -> Self {
+        Error::new(ErrorKind::CacheRead(err))
+    }
+}
+
+impl From<CacheWriteErr> for Error {
+    fn from(err: CacheWriteErr) -> Self {
+        Error::new(ErrorKind::CacheWrite(err))
+    }
+}
+
+impl From<CopyBufferImageError> for Error {
+    fn from(err: CopyBufferImageError) -> Self {
+        Error::new(ErrorKind::CopyBufferImage(err))
+    }
+}
+
+impl From<DeviceMemoryAllocError> for Error {
+    fn from(err: DeviceMemoryAllocError) -> Self {
+        Error::new(ErrorKind::DeviceMemoryAlloc(err))
+    }
+}
+
+impl From<OomError> for Error {
+    fn from(err: OomError) -> Self {
+        Error::new(ErrorKind::Oom(err))
+    }
+}
+
+impl From<SamplerCreationError> for Error {
+    fn from(err: SamplerCreationError) -> Self {
+        Error::new(ErrorKind::SamplerCreation(err))
+    }
+}
+
+impl From<ImageCreationError> for Error {
+    fn from(err: ImageCreationError) -> Self {
+        Error::new(ErrorKind::ImageCreation(err))
+    }
+}
+
+impl From<GraphicsPipelineCreationError> for Error {
+    fn from(err: GraphicsPipelineCreationError) -> Self {
+        Error::new(ErrorKind::GraphicsPipelineCreation(err))
+    }
+}
+
+impl From<DrawError> for Error {
+    fn from(err: DrawError) -> Self {
+        Error::new(ErrorKind::Draw(err))
+    }
+}
+
+impl From<PersistentDescriptorSetError> for Error {
+    fn from(err: PersistentDescriptorSetError) -> Self {
+        Error::new(ErrorKind::PersistentDescriptorSet(err))
+    }
+}
+
+impl From<PersistentDescriptorSetBuildError> for Error {
+    fn from(err: PersistentDescriptorSetBuildError) -> Self {
+        Error::new(ErrorKind::PersistentDescriptorSetBuild(err))
+    }
+}
+
+impl fmt::Display for Error {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self.kind() {
+            ErrorKind::CacheRead(err) => err.fmt(f),
+            ErrorKind::CacheWrite(err) => err.fmt(f),
+            ErrorKind::CopyBufferImage(err) => err.fmt(f),
+            ErrorKind::Draw(err) => err.fmt(f),
+            ErrorKind::DeviceMemoryAlloc(err) => err.fmt(f),
+            ErrorKind::SamplerCreation(err) => err.fmt(f),
+            ErrorKind::ImageCreation(err) => err.fmt(f),
+            ErrorKind::GraphicsPipelineCreation(err) => err.fmt(f),
+            ErrorKind::Oom(err) => err.fmt(f),
+            ErrorKind::PersistentDescriptorSet(err) => err.fmt(f),
+            ErrorKind::PersistentDescriptorSetBuild(err) => err.fmt(f),
+            ErrorKind::__NonExhaustive => unreachable!(),
+        }
+    }
+}
+
+impl error::Error for Error {
+    fn cause(&self) -> Option<&error::Error> {
+        Some(match self.kind() {
+            ErrorKind::CacheRead(err) => err,
+            ErrorKind::CacheWrite(err) => err,
+            ErrorKind::CopyBufferImage(err) => err,
+            ErrorKind::Draw(err) => err,
+            ErrorKind::DeviceMemoryAlloc(err) => err,
+            ErrorKind::SamplerCreation(err) => err,
+            ErrorKind::ImageCreation(err) => err,
+            ErrorKind::GraphicsPipelineCreation(err) => err,
+            ErrorKind::Oom(err) => err,
+            ErrorKind::PersistentDescriptorSet(err) => err,
+            ErrorKind::PersistentDescriptorSetBuild(err) => err,
+            ErrorKind::__NonExhaustive => unreachable!(),
+        })
+    }
+}
