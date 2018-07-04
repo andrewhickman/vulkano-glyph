@@ -22,6 +22,7 @@ use vulkano::command_buffer::{
 use vulkano::device::Device;
 use vulkano::device::Queue;
 use vulkano::framebuffer::{RenderPassAbstract, Subpass};
+use vulkano::instance::QueueFamily;
 use vulkano::sync::NowFuture;
 
 use draw::Draw;
@@ -44,12 +45,13 @@ struct GlyphData<'font> {
 pub type FontId = Id;
 
 impl<'font> GlyphBrush<'font> {
-    pub fn new(
+    pub fn new<'a>(
         device: &Arc<Device>,
+        queue_families: impl IntoIterator<Item = QueueFamily<'a>>,
         subpass: Subpass<Arc<RenderPassAbstract + Send + Sync>>,
     ) -> Result<Self> {
         let draw = Draw::new(device, subpass)?;
-        let cache = GpuCache::new(device)?;
+        let cache = GpuCache::new(device, queue_families)?;
         Ok(GlyphBrush {
             draw,
             cache,
@@ -95,7 +97,7 @@ impl<'font> GlyphBrush<'font> {
     pub fn cache_queued(
         &mut self,
         queue: Arc<Queue>,
-    ) -> Result<CommandBufferExecFuture<NowFuture, AutoCommandBuffer>> {
+    ) -> Result<Option<CommandBufferExecFuture<NowFuture, AutoCommandBuffer>>> {
         self.cache.cache_queued(queue)
     }
 

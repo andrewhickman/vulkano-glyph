@@ -18,6 +18,11 @@ layout(location = 1) out vec4 f_color;
 void main() {
     vec2 pos;
 
+    //vec2 tl = vec2(-0.798, -0.816);
+    //vec2 br = vec2(-0.788, 0.81);
+    //vec2 tex_tl = vec2(0.00390625, 0.00390625);
+    //vec2 tex_br = vec2(0.0234375, 0.015625);
+
     switch (gl_VertexIndex) {
         case 0: // top left
             pos = tl;

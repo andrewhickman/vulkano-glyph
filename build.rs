@@ -1,4 +1,4 @@
 fn main() {
-    println!("cargo:rerun-if-changed=shaders/frag.glsl");
-    println!("cargo:rerun-if-changed=shaders/vert.glsl");
+    println!("cargo:rerun-if-changed=shader/frag.glsl");
+    println!("cargo:rerun-if-changed=shader/vert.glsl");
 }

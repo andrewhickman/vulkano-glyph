@@ -46,6 +46,7 @@ fn main() {
 
     let mut events_loop = winit::EventsLoop::new();
     let surface = winit::WindowBuilder::new()
+        .with_dimensions(winit::dpi::LogicalSize::new(1000.0, 1000.0))
         .build_vk_surface(&events_loop, instance.clone())
         .unwrap();
 
@@ -115,6 +116,7 @@ fn main() {
 
     let mut glyph_brush = GlyphBrush::new(
         &device,
+        physical.queue_families(),
         Subpass::from(
             render_pass.clone() as Arc<RenderPassAbstract + Send + Sync>,
             0,
@@ -181,14 +183,18 @@ fn main() {
             "Hello, world!",
             (100.0, 100.0),
             20.0,
-            0.0,
+            1.0,
             Rect {
-                min: point(100.0, 100.0),
-                max: point(400.0, 200.0),
+                min: point(000.0, 000.0),
+                max: point(1000.0, 1000.0),
             },
-            [0.0, 0.0, 0.0, 1.0],
+            [0.0, 0.0, 1.0, 1.0],
         );
-        let copy_future = glyph_brush.cache_queued(Arc::clone(&queue)).unwrap();
+        let copy_future = glyph_brush
+            .cache_queued(Arc::clone(&queue))
+            .unwrap()
+            .map(|f| Box::new(f) as Box<GpuFuture + Send + Sync>)
+            .unwrap_or_else(|| Box::new(now(device.clone())));
 
         let (image_num, acquire_future) =
             match swapchain::acquire_next_image(swapchain.clone(), None) {
@@ -206,7 +212,7 @@ fn main() {
                 .begin_render_pass(
                     framebuffers.as_ref().unwrap()[image_num].clone(),
                     false,
-                    vec![[0.0, 0.0, 1.0, 1.0].into()],
+                    vec![[1.0, 1.0, 1.0, 1.0].into()],
                 )
                 .unwrap();
         let command_buffer = glyph_brush
@@ -225,8 +231,8 @@ fn main() {
         let command_buffer = command_buffer.end_render_pass().unwrap().build().unwrap();
 
         let future = previous_frame_end
-            .join(acquire_future)
             .join(copy_future)
+            .join(acquire_future)
             .then_execute(queue.clone(), command_buffer)
             .unwrap()
             .then_swapchain_present(queue.clone(), swapchain.clone(), image_num)
@@ -249,7 +255,7 @@ fn main() {
         let mut done = false;
         events_loop.poll_events(|ev| match ev {
             winit::Event::WindowEvent {
-                event: winit::WindowEvent::Closed,
+                event: winit::WindowEvent::CloseRequested,
                 ..
             } => done = true,
             _ => (),

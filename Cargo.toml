@@ -9,8 +9,8 @@ license = "MIT/Apache-2.0"
 readme = "README.md"
 
 [dependencies]
-vulkano = "0.9.0"
-vulkano-shader-derive = "0.9.0"
+vulkano = { path = "../vulkano/vulkano" }
+vulkano-shader-derive = { path = "../vulkano/vulkano-shader-derive" }
 id-map = "0.2.1"
 
 [dependencies.rusttype]
@@ -18,5 +18,5 @@ version = "0.6.1"
 features = ["gpu_cache"]
 
 [dev-dependencies]
-vulkano-win = "0.9.0"
-winit = "0.11.0"
+vulkano-win = { path = "../vulkano/vulkano-win" }
+winit = "0.16.0"

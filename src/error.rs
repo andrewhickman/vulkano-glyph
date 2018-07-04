@@ -1,7 +1,7 @@
 use std::{error, fmt, result};
 
 use rusttype::gpu_cache::{CacheReadErr, CacheWriteErr};
-use vulkano::command_buffer::{CopyBufferImageError, DrawError};
+use vulkano::command_buffer::{CopyBufferImageError, DrawIndirectError};
 use vulkano::descriptor::descriptor_set::{
     PersistentDescriptorSetBuildError, PersistentDescriptorSetError,
 };
@@ -35,7 +35,7 @@ pub enum ErrorKind {
     CacheRead(CacheReadErr),
     CacheWrite(CacheWriteErr),
     CopyBufferImage(CopyBufferImageError),
-    Draw(DrawError),
+    DrawIndirect(DrawIndirectError),
     DeviceMemoryAlloc(DeviceMemoryAllocError),
     SamplerCreation(SamplerCreationError),
     ImageCreation(ImageCreationError),
@@ -95,9 +95,9 @@ impl From<GraphicsPipelineCreationError> for Error {
     }
 }
 
-impl From<DrawError> for Error {
-    fn from(err: DrawError) -> Self {
-        Error::new(ErrorKind::Draw(err))
+impl From<DrawIndirectError> for Error {
+    fn from(err: DrawIndirectError) -> Self {
+        Error::new(ErrorKind::DrawIndirect(err))
     }
 }
 
@@ -119,7 +119,7 @@ impl fmt::Display for Error {
             ErrorKind::CacheRead(err) => err.fmt(f),
             ErrorKind::CacheWrite(err) => err.fmt(f),
             ErrorKind::CopyBufferImage(err) => err.fmt(f),
-            ErrorKind::Draw(err) => err.fmt(f),
+            ErrorKind::DrawIndirect(err) => err.fmt(f),
             ErrorKind::DeviceMemoryAlloc(err) => err.fmt(f),
             ErrorKind::SamplerCreation(err) => err.fmt(f),
             ErrorKind::ImageCreation(err) => err.fmt(f),
@@ -138,7 +138,7 @@ impl error::Error for Error {
             ErrorKind::CacheRead(err) => err,
             ErrorKind::CacheWrite(err) => err,
             ErrorKind::CopyBufferImage(err) => err,
-            ErrorKind::Draw(err) => err,
+            ErrorKind::DrawIndirect(err) => err,
             ErrorKind::DeviceMemoryAlloc(err) => err,
             ErrorKind::SamplerCreation(err) => err,
             ErrorKind::ImageCreation(err) => err,

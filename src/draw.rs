@@ -1,19 +1,21 @@
+use std::iter;
 use std::sync::Arc;
 
 use rusttype::{point, Rect};
 use vulkano::buffer::{BufferUsage, CpuBufferPool};
-use vulkano::command_buffer::{AutoCommandBufferBuilder, DynamicState};
+use vulkano::command_buffer::{AutoCommandBufferBuilder, DrawIndirectCommand, DynamicState};
 use vulkano::descriptor::descriptor_set::FixedSizeDescriptorSetsPool;
 use vulkano::descriptor::PipelineLayoutAbstract;
 use vulkano::device::Device;
 use vulkano::framebuffer::{RenderPassAbstract, Subpass};
-use vulkano::pipeline::vertex::SingleBufferDefinition;
+use vulkano::pipeline::vertex::InstanceBufferDefinition;
 use vulkano::pipeline::viewport::{Scissor, Viewport};
 use vulkano::pipeline::GraphicsPipeline;
 use vulkano::sampler::{Filter, MipmapMode, Sampler, SamplerAddressMode};
 
 use {Error, GlyphData, GpuCache};
 
+#[derive(Debug)]
 struct Vertex {
     tl: [f32; 2],
     br: [f32; 2],
@@ -43,7 +45,7 @@ mod fs {
 
 type Pipeline = Arc<
     GraphicsPipeline<
-        SingleBufferDefinition<Vertex>,
+        InstanceBufferDefinition<Vertex>,
         Box<PipelineLayoutAbstract + Send + Sync>,
         Arc<RenderPassAbstract + Send + Sync>,
     >,
@@ -55,6 +57,7 @@ pub(crate) struct Draw {
     ubuf: CpuBufferPool<vs::ty::Data>,
     pool: FixedSizeDescriptorSetsPool<Pipeline>,
     sampler: Arc<Sampler>,
+    ibuf: CpuBufferPool<DrawIndirectCommand>,
 }
 
 impl Draw {
@@ -66,16 +69,17 @@ impl Draw {
         let fs = fs::Shader::load(Arc::clone(device))?;
 
         let pipe = Arc::new(GraphicsPipeline::start()
-            .vertex_input_single_buffer::<Vertex>()
+            .vertex_input(InstanceBufferDefinition::<Vertex>::new())
             .vertex_shader(vs.main_entry_point(), ())
-            .triangle_list()
-            .viewports_dynamic_scissors_irrelevant(1)
+            .triangle_strip()
+            .viewports_scissors_dynamic(1)
             .fragment_shader(fs.main_entry_point(), ())
             .render_pass(subpass)
             .build(Arc::clone(device))?);
 
         let vbuf = CpuBufferPool::new(Arc::clone(device), BufferUsage::vertex_buffer());
         let ubuf = CpuBufferPool::new(Arc::clone(device), BufferUsage::uniform_buffer());
+        let ibuf = CpuBufferPool::new(Arc::clone(device), BufferUsage::indirect_buffer());
 
         let pool = FixedSizeDescriptorSetsPool::new(Arc::clone(&pipe), 0);
 
@@ -84,9 +88,9 @@ impl Draw {
             Filter::Linear,
             Filter::Linear,
             MipmapMode::Nearest,
-            SamplerAddressMode::Repeat,
-            SamplerAddressMode::Repeat,
-            SamplerAddressMode::Repeat,
+            SamplerAddressMode::ClampToEdge,
+            SamplerAddressMode::ClampToEdge,
+            SamplerAddressMode::ClampToEdge,
             0.0,
             1.0,
             0.0,
@@ -99,6 +103,7 @@ impl Draw {
             ubuf,
             pool,
             sampler,
+            ibuf,
         })
     }
 
@@ -111,8 +116,38 @@ impl Draw {
         [w, h]: [u32; 2],
     ) -> Result<AutoCommandBufferBuilder, Error> {
         let vertices = text_vertices(data, cache, (w as f32, h as f32))?;
+        println!(
+            "{}",
+            vertices
+                .iter()
+                .fold("vertices ".to_owned(), |a, b| {
+                    format!("{}\n         {:?}", a, b)
+                })
+        );
+        let instance_count = vertices.len() as u32;
         let vbuf = self.vbuf.chunk(vertices)?;
+        /*
+        use vulkano::device::DeviceOwned;
+        let vbuf = ::vulkano::buffer::CpuAccessibleBuffer::from_iter(
+            self.vbuf.device().clone(),
+            BufferUsage::vertex_buffer(),
+            vertices.into_iter(),
+        ).unwrap();
+        */
         let ubuf = self.ubuf.next(vs::ty::Data { transform })?;
+        let ibuf = self.ibuf.chunk(iter::once(DrawIndirectCommand {
+            vertex_count: 4,
+            instance_count,
+            first_vertex: 0,
+            first_instance: 0,
+        }))?;
+        use vulkano::buffer::{BufferAccess, TypedBufferAccess};
+        println!(
+            "{} + {} len: {}",
+            vbuf.inner().buffer.key(),
+            vbuf.inner().offset,
+            vbuf.len(),
+        );
         let set = self.pool
             .next()
             .add_buffer(ubuf)?
@@ -130,7 +165,7 @@ impl Draw {
                 dimensions: [data.bounds.width() as u32, data.bounds.height() as u32],
             }]),
         };
-        Ok(cmd.draw(Arc::clone(&self.pipe), state, vbuf, set, ())?)
+        Ok(cmd.draw_indirect(Arc::clone(&self.pipe), state, vbuf, ibuf, set, ())?)
     }
 }
 
@@ -155,7 +190,7 @@ fn text_vertices<'font>(
     };
 */
 
-    for gly in &data.glyphs {
+    for gly in data.glyphs.iter().cycle().take(data.glyphs.len() * 1) {
         if let Some((mut uv_rect, screen_rect)) = cache.rect_for(data.font, gly)? {
             if screen_rect.min.x as f32 > data.bounds.max.x
                 || screen_rect.min.y as f32 > data.bounds.max.y
@@ -203,14 +238,16 @@ fn text_vertices<'font>(
             }
 */
 
+            //for _ in 0..4 {
             vertices.push(Vertex {
-                tl: [gl_rect.min.x, gl_rect.max.y],
-                br: [gl_rect.max.x, gl_rect.min.y],
-                tex_tl: [uv_rect.min.x, uv_rect.max.y],
-                tex_br: [uv_rect.max.x, uv_rect.min.y],
+                tl: [gl_rect.min.x, gl_rect.min.y],
+                br: [gl_rect.max.x, gl_rect.max.y],
+                tex_tl: [uv_rect.min.x, uv_rect.min.y],
+                tex_br: [uv_rect.max.x, uv_rect.max.y],
                 color: data.color,
                 z: data.z,
             });
+            //}
         }
     }
     Ok(vertices)

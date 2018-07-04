@@ -8,33 +8,40 @@ use vulkano::command_buffer::{
 };
 use vulkano::device::{Device, DeviceOwned, Queue};
 use vulkano::format::R8Unorm;
-use vulkano::image::{AttachmentImage, ImageUsage};
+use vulkano::image::{Dimensions, ImageUsage, StorageImage};
+use vulkano::instance::QueueFamily;
 use vulkano::sync::NowFuture;
 
 use {FontId, Result};
 
-const INITIAL_WIDTH: u32 = 256;
-const INITIAL_HEIGHT: u32 = 256;
+const INITIAL_WIDTH: u32 = 2048;
+const INITIAL_HEIGHT: u32 = 2048;
 
 /// Wraps `rusttype`'s cache for use with `vulkano`.
 pub struct GpuCache<'font> {
     cache: Cache<'font>,
-    tex: Arc<AttachmentImage<R8Unorm>>,
+    tex: Arc<StorageImage<R8Unorm>>,
     buf: CpuBufferPool<u8>,
 }
 
 impl<'font> GpuCache<'font> {
-    pub fn new<'a>(device: &Arc<Device>) -> Result<Self> {
+    pub fn new<'a>(
+        device: &Arc<Device>,
+        queue_families: impl IntoIterator<Item = QueueFamily<'a>>,
+    ) -> Result<Self> {
         let width = INITIAL_WIDTH;
         let height = INITIAL_HEIGHT;
-        let tex = AttachmentImage::with_usage(
+        let tex = StorageImage::with_usage(
             Arc::clone(device),
-            [width, height],
+            Dimensions::Dim2d { width, height },
             R8Unorm,
             ImageUsage {
                 transfer_destination: true,
+                transfer_source: true,
+                sampled: true,
                 ..ImageUsage::none()
             },
+            queue_families,
         )?;
         let buf = CpuBufferPool::upload(Arc::clone(device));
         let cache = CacheBuilder {
@@ -53,12 +60,17 @@ impl<'font> GpuCache<'font> {
     pub fn cache_queued(
         &mut self,
         queue: Arc<Queue>,
-    ) -> Result<CommandBufferExecFuture<NowFuture, AutoCommandBuffer>> {
+    ) -> Result<Option<CommandBufferExecFuture<NowFuture, AutoCommandBuffer>>> {
         let GpuCache { cache, buf, tex } = self;
-        let cmd = AutoCommandBufferBuilder::new(buf.device().clone(), queue.family())?;
-        let mut cmd = Some(cmd);
+        let mut cmd = None;
         let mut err = None;
         cache.cache_queued(|rect, data| {
+            if cmd.is_none() {
+                cmd = Some(
+                    AutoCommandBufferBuilder::new(buf.device().clone(), queue.family()).unwrap(),
+                );
+            }
+
             if err.is_none() {
                 let chunk = match buf.chunk(data.iter().cloned()) {
                     Ok(chunk) => chunk,
@@ -90,7 +102,7 @@ impl<'font> GpuCache<'font> {
         if let Some(err) = err {
             Err(err)
         } else {
-            Ok(cmd.unwrap().build().unwrap().execute(queue).unwrap())
+            Ok(cmd.map(|cmd| cmd.build().unwrap().execute(queue).unwrap()))
         }
     }
 
@@ -102,7 +114,7 @@ impl<'font> GpuCache<'font> {
         Ok(self.cache.rect_for(font_id, glyph)?)
     }
 
-    pub fn image(&self) -> &Arc<AttachmentImage<R8Unorm>> {
+    pub fn image(&self) -> &Arc<StorageImage<R8Unorm>> {
         &self.tex
     }
 }
