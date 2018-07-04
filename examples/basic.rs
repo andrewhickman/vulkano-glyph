@@ -9,7 +9,7 @@ use std::env;
 use std::fs::File;
 use std::io::Read;
 
-use rusttype::{point, Font, Rect};
+use rusttype::Font;
 use vulkano::command_buffer::AutoCommandBufferBuilder;
 use vulkano::device::Device;
 use vulkano::framebuffer::Framebuffer;
@@ -182,12 +182,8 @@ fn main() {
             font,
             "Hello, world!",
             (100.0, 100.0),
-            20.0,
+            50.0,
             1.0,
-            Rect {
-                min: point(000.0, 000.0),
-                max: point(1000.0, 1000.0),
-            },
             [0.0, 0.0, 1.0, 1.0],
         );
         let copy_future = glyph_brush

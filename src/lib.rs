@@ -15,7 +15,7 @@ pub use self::error::{Error, Result};
 use std::sync::Arc;
 
 use id_map::{Id, IdMap};
-use rusttype::{point, Font, PositionedGlyph, Rect, Scale};
+use rusttype::{point, Font, PositionedGlyph, Scale};
 use vulkano::command_buffer::{
     AutoCommandBuffer, AutoCommandBufferBuilder, CommandBufferExecFuture,
 };
@@ -36,7 +36,6 @@ pub struct GlyphBrush<'font> {
 
 struct GlyphData<'font> {
     glyphs: Vec<PositionedGlyph<'font>>,
-    bounds: Rect<f32>,
     font: FontId,
     color: [f32; 4],
     z: f32,
@@ -71,7 +70,6 @@ impl<'font> GlyphBrush<'font> {
         (x, y): (f32, f32),
         size: f32,
         z: f32,
-        bounds: Rect<f32>,
         color: [f32; 4],
     ) {
         let GlyphBrush {
@@ -89,7 +87,6 @@ impl<'font> GlyphBrush<'font> {
             font,
             glyphs,
             color,
-            bounds,
             z,
         });
     }

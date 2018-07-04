@@ -1,7 +1,6 @@
 use std::iter;
 use std::sync::Arc;
 
-use rusttype::{point, Rect};
 use vulkano::buffer::{BufferUsage, CpuBufferPool};
 use vulkano::command_buffer::{AutoCommandBufferBuilder, DrawIndirectCommand, DynamicState};
 use vulkano::descriptor::descriptor_set::FixedSizeDescriptorSetsPool;
@@ -9,7 +8,7 @@ use vulkano::descriptor::PipelineLayoutAbstract;
 use vulkano::device::Device;
 use vulkano::framebuffer::{RenderPassAbstract, Subpass};
 use vulkano::pipeline::vertex::InstanceBufferDefinition;
-use vulkano::pipeline::viewport::{Scissor, Viewport};
+use vulkano::pipeline::viewport::Viewport;
 use vulkano::pipeline::GraphicsPipeline;
 use vulkano::sampler::{Filter, MipmapMode, Sampler, SamplerAddressMode};
 
@@ -72,7 +71,7 @@ impl Draw {
             .vertex_input(InstanceBufferDefinition::<Vertex>::new())
             .vertex_shader(vs.main_entry_point(), ())
             .triangle_strip()
-            .viewports_scissors_dynamic(1)
+            .viewports_dynamic_scissors_irrelevant(1)
             .fragment_shader(fs.main_entry_point(), ())
             .render_pass(subpass)
             .build(Arc::clone(device))?);
@@ -160,10 +159,7 @@ impl Draw {
                 dimensions: [w as f32, h as f32],
                 depth_range: 0.0..1.0,
             }]),
-            scissors: Some(vec![Scissor {
-                origin: [data.bounds.min.x as i32, data.bounds.min.y as i32],
-                dimensions: [data.bounds.width() as u32, data.bounds.height() as u32],
-            }]),
+            scissors: None,
         };
         Ok(cmd.draw_indirect(Arc::clone(&self.pipe), state, vbuf, ibuf, set, ())?)
     }
@@ -177,77 +173,23 @@ fn text_vertices<'font>(
     // max 1 vertex per glyph
     let mut vertices = Vec::with_capacity(data.glyphs.len());
 
-    /*
-    let gl_bounds = Rect {
-        min: point(
-            2.0 * (data.bounds.min.x / screen_width - 0.5),
-            2.0 * (0.5 - data.bounds.min.y / screen_height),
-        ),
-        max: point(
-            2.0 * (data.bounds.max.x / screen_width - 0.5),
-            2.0 * (0.5 - data.bounds.max.y / screen_height),
-        ),
-    };
-*/
-
-    for gly in data.glyphs.iter().cycle().take(data.glyphs.len() * 1) {
+    for gly in data.glyphs.iter() {
         if let Some((mut uv_rect, screen_rect)) = cache.rect_for(data.font, gly)? {
-            if screen_rect.min.x as f32 > data.bounds.max.x
-                || screen_rect.min.y as f32 > data.bounds.max.y
-                || data.bounds.min.x > screen_rect.max.x as f32
-                || data.bounds.min.y > screen_rect.max.y as f32
-            {
-                // glyph is totally outside the bounds
-                continue;
-            }
-
-            let mut gl_rect = Rect {
-                min: point(
-                    2.0 * (screen_rect.min.x as f32 / screen_width - 0.5),
-                    2.0 * (0.5 - screen_rect.min.y as f32 / screen_height),
-                ),
-                max: point(
-                    2.0 * (screen_rect.max.x as f32 / screen_width - 0.5),
-                    2.0 * (0.5 - screen_rect.max.y as f32 / screen_height),
-                ),
-            };
-
-            /*
-            // handle overlapping bounds, modify uv_rect to preserve texture aspect
-            if gl_rect.max.x > gl_bounds.max.x {
-                let old_width = gl_rect.width();
-                gl_rect.max.x = gl_bounds.max.x;
-                uv_rect.max.x = uv_rect.min.x + uv_rect.width() * gl_rect.width() / old_width;
-            }
-            if gl_rect.min.x < gl_bounds.min.x {
-                let old_width = gl_rect.width();
-                gl_rect.min.x = gl_bounds.min.x;
-                uv_rect.min.x = uv_rect.max.x - uv_rect.width() * gl_rect.width() / old_width;
-            }
-            // note: y access is flipped gl compared with screen,
-            // texture is not flipped (ie is a headache)
-            if gl_rect.max.y < gl_bounds.max.y {
-                let old_height = gl_rect.height();
-                gl_rect.max.y = gl_bounds.max.y;
-                uv_rect.max.y = uv_rect.min.y + uv_rect.height() * gl_rect.height() / old_height;
-            }
-            if gl_rect.min.y > gl_bounds.min.y {
-                let old_height = gl_rect.height();
-                gl_rect.min.y = gl_bounds.min.y;
-                uv_rect.min.y = uv_rect.max.y - uv_rect.height() * gl_rect.height() / old_height;
-            }
-*/
-
-            //for _ in 0..4 {
+            println!("{:?}", screen_rect);
             vertices.push(Vertex {
-                tl: [gl_rect.min.x, gl_rect.min.y],
-                br: [gl_rect.max.x, gl_rect.max.y],
+                tl: [
+                    2.0 * (screen_rect.min.x as f32 / screen_width - 0.5),
+                    2.0 * (screen_rect.min.y as f32 / screen_height - 0.5),
+                ],
+                br: [
+                    2.0 * (screen_rect.max.x as f32 / screen_width - 0.5),
+                    2.0 * (screen_rect.max.y as f32 / screen_height - 0.5),
+                ],
                 tex_tl: [uv_rect.min.x, uv_rect.min.y],
                 tex_br: [uv_rect.max.x, uv_rect.max.y],
                 color: data.color,
                 z: data.z,
             });
-            //}
         }
     }
     Ok(vertices)
