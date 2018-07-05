@@ -14,7 +14,6 @@ layout(location = 5) in float z;
 layout(location = 0) out vec2 f_tex_pos;
 layout(location = 1) out vec4 f_color;
 
-// generate positional data based on vertex ID
 void main() {
     vec2 pos;
 

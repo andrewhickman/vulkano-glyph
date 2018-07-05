@@ -12,6 +12,7 @@ readme = "README.md"
 vulkano = { path = "../vulkano/vulkano" }
 vulkano-shader-derive = { path = "../vulkano/vulkano-shader-derive" }
 id-map = "0.2.1"
+log = "0.4.0"
 
 [dependencies.rusttype]
 version = "0.6.1"
@@ -20,3 +21,4 @@ features = ["gpu_cache"]
 [dev-dependencies]
 vulkano-win = { path = "../vulkano/vulkano-win" }
 winit = "0.16.0"
+env_logger = "0.5.10"

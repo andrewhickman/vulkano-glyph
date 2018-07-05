@@ -4,6 +4,8 @@ extern crate vulkano;
 extern crate vulkano_shader_derive;
 extern crate id_map;
 extern crate rusttype;
+#[macro_use]
+extern crate log;
 
 mod cache;
 mod draw;
@@ -22,7 +24,6 @@ use vulkano::command_buffer::{
 use vulkano::device::Device;
 use vulkano::device::Queue;
 use vulkano::framebuffer::{RenderPassAbstract, Subpass};
-use vulkano::instance::QueueFamily;
 use vulkano::sync::NowFuture;
 
 use draw::Draw;
@@ -46,11 +47,10 @@ pub type FontId = Id;
 impl<'font> GlyphBrush<'font> {
     pub fn new<'a>(
         device: &Arc<Device>,
-        queue_families: impl IntoIterator<Item = QueueFamily<'a>>,
         subpass: Subpass<Arc<RenderPassAbstract + Send + Sync>>,
     ) -> Result<Self> {
         let draw = Draw::new(device, subpass)?;
-        let cache = GpuCache::new(device, queue_families)?;
+        let cache = GpuCache::new(device)?;
         Ok(GlyphBrush {
             draw,
             cache,
@@ -72,18 +72,11 @@ impl<'font> GlyphBrush<'font> {
         z: f32,
         color: [f32; 4],
     ) {
-        let GlyphBrush {
-            fonts,
-            queue,
-            cache,
-            ..
-        } = self;
-        let glyphs = fonts[font]
+        let glyphs = self.fonts[font]
             .layout(text, Scale::uniform(size), point(x, y))
             .map(|gly| gly.standalone())
-            .inspect(|gly| cache.queue_glyph(font, gly.clone()))
             .collect();
-        queue.push(GlyphData {
+        self.queue.push(GlyphData {
             font,
             glyphs,
             color,
@@ -93,9 +86,14 @@ impl<'font> GlyphBrush<'font> {
 
     pub fn cache_queued(
         &mut self,
-        queue: Arc<Queue>,
+        queue: &Arc<Queue>,
     ) -> Result<Option<CommandBufferExecFuture<NowFuture, AutoCommandBuffer>>> {
-        self.cache.cache_queued(queue)
+        self.cache.cache(
+            queue,
+            self.queue
+                .iter()
+                .flat_map(|data| data.glyphs.iter().cloned().map(move |gly| (data.font, gly))),
+        )
     }
 
     pub fn draw(

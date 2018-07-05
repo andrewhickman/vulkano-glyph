@@ -7,7 +7,7 @@ use vulkano::descriptor::descriptor_set::FixedSizeDescriptorSetsPool;
 use vulkano::descriptor::PipelineLayoutAbstract;
 use vulkano::device::Device;
 use vulkano::framebuffer::{RenderPassAbstract, Subpass};
-use vulkano::pipeline::vertex::InstanceBufferDefinition;
+use vulkano::pipeline::vertex::SingleInstanceBufferDefinition;
 use vulkano::pipeline::viewport::Viewport;
 use vulkano::pipeline::GraphicsPipeline;
 use vulkano::sampler::{Filter, MipmapMode, Sampler, SamplerAddressMode};
@@ -44,7 +44,7 @@ mod fs {
 
 type Pipeline = Arc<
     GraphicsPipeline<
-        InstanceBufferDefinition<Vertex>,
+        SingleInstanceBufferDefinition<Vertex>,
         Box<PipelineLayoutAbstract + Send + Sync>,
         Arc<RenderPassAbstract + Send + Sync>,
     >,
@@ -68,7 +68,7 @@ impl Draw {
         let fs = fs::Shader::load(Arc::clone(device))?;
 
         let pipe = Arc::new(GraphicsPipeline::start()
-            .vertex_input(InstanceBufferDefinition::<Vertex>::new())
+            .vertex_input(SingleInstanceBufferDefinition::<Vertex>::new())
             .vertex_shader(vs.main_entry_point(), ())
             .triangle_strip()
             .viewports_dynamic_scissors_irrelevant(1)
@@ -115,24 +115,8 @@ impl Draw {
         [w, h]: [u32; 2],
     ) -> Result<AutoCommandBufferBuilder, Error> {
         let vertices = text_vertices(data, cache, (w as f32, h as f32))?;
-        println!(
-            "{}",
-            vertices
-                .iter()
-                .fold("vertices ".to_owned(), |a, b| {
-                    format!("{}\n         {:?}", a, b)
-                })
-        );
         let instance_count = vertices.len() as u32;
         let vbuf = self.vbuf.chunk(vertices)?;
-        /*
-        use vulkano::device::DeviceOwned;
-        let vbuf = ::vulkano::buffer::CpuAccessibleBuffer::from_iter(
-            self.vbuf.device().clone(),
-            BufferUsage::vertex_buffer(),
-            vertices.into_iter(),
-        ).unwrap();
-        */
         let ubuf = self.ubuf.next(vs::ty::Data { transform })?;
         let ibuf = self.ibuf.chunk(iter::once(DrawIndirectCommand {
             vertex_count: 4,
@@ -140,18 +124,13 @@ impl Draw {
             first_vertex: 0,
             first_instance: 0,
         }))?;
-        use vulkano::buffer::{BufferAccess, TypedBufferAccess};
-        println!(
-            "{} + {} len: {}",
-            vbuf.inner().buffer.key(),
-            vbuf.inner().offset,
-            vbuf.len(),
-        );
+
         let set = self.pool
             .next()
             .add_buffer(ubuf)?
-            .add_sampled_image(Arc::clone(cache.image()), Arc::clone(&self.sampler))?
+            .add_sampled_image(cache.image(), Arc::clone(&self.sampler))?
             .build()?;
+
         let state = DynamicState {
             line_width: None,
             viewports: Some(vec![Viewport {
@@ -161,6 +140,7 @@ impl Draw {
             }]),
             scissors: None,
         };
+
         Ok(cmd.draw_indirect(Arc::clone(&self.pipe), state, vbuf, ibuf, set, ())?)
     }
 }
@@ -169,21 +149,18 @@ fn text_vertices<'font>(
     data: &GlyphData,
     cache: &GpuCache<'font>,
     (screen_width, screen_height): (f32, f32),
-) -> Result<Vec<Vertex>, Error> {
-    // max 1 vertex per glyph
+) -> Result<impl ExactSizeIterator<Item = Vertex>, Error> {
     let mut vertices = Vec::with_capacity(data.glyphs.len());
-
     for gly in data.glyphs.iter() {
         if let Some((mut uv_rect, screen_rect)) = cache.rect_for(data.font, gly)? {
-            println!("{:?}", screen_rect);
             vertices.push(Vertex {
                 tl: [
-                    2.0 * (screen_rect.min.x as f32 / screen_width - 0.5),
-                    2.0 * (screen_rect.min.y as f32 / screen_height - 0.5),
+                    to_ndc(screen_rect.min.x, screen_width),
+                    to_ndc(screen_rect.min.y, screen_height),
                 ],
                 br: [
-                    2.0 * (screen_rect.max.x as f32 / screen_width - 0.5),
-                    2.0 * (screen_rect.max.y as f32 / screen_height - 0.5),
+                    to_ndc(screen_rect.max.x, screen_width),
+                    to_ndc(screen_rect.max.y, screen_height),
                 ],
                 tex_tl: [uv_rect.min.x, uv_rect.min.y],
                 tex_br: [uv_rect.max.x, uv_rect.max.y],
@@ -192,5 +169,9 @@ fn text_vertices<'font>(
             });
         }
     }
-    Ok(vertices)
+    Ok(vertices.into_iter())
+}
+
+fn to_ndc(x: i32, size: f32) -> f32 {
+    (2 * x) as f32 / size - 1.0
 }

@@ -1,7 +1,9 @@
 use std::{error, fmt, result};
 
 use rusttype::gpu_cache::{CacheReadErr, CacheWriteErr};
-use vulkano::command_buffer::{CopyBufferImageError, DrawIndirectError};
+use vulkano::command_buffer::{
+    BuildError, CommandBufferExecError, CopyBufferImageError, DrawIndirectError,
+};
 use vulkano::descriptor::descriptor_set::{
     PersistentDescriptorSetBuildError, PersistentDescriptorSetError,
 };
@@ -34,7 +36,9 @@ impl Error {
 pub enum ErrorKind {
     CacheRead(CacheReadErr),
     CacheWrite(CacheWriteErr),
+    Build(BuildError),
     CopyBufferImage(CopyBufferImageError),
+    CommandBufferExec(CommandBufferExecError),
     DrawIndirect(DrawIndirectError),
     DeviceMemoryAlloc(DeviceMemoryAllocError),
     SamplerCreation(SamplerCreationError),
@@ -62,6 +66,18 @@ impl From<CacheWriteErr> for Error {
 impl From<CopyBufferImageError> for Error {
     fn from(err: CopyBufferImageError) -> Self {
         Error::new(ErrorKind::CopyBufferImage(err))
+    }
+}
+
+impl From<CommandBufferExecError> for Error {
+    fn from(err: CommandBufferExecError) -> Self {
+        Error::new(ErrorKind::CommandBufferExec(err))
+    }
+}
+
+impl From<BuildError> for Error {
+    fn from(err: BuildError) -> Self {
+        Error::new(ErrorKind::Build(err))
     }
 }
 
@@ -119,6 +135,8 @@ impl fmt::Display for Error {
             ErrorKind::CacheRead(err) => err.fmt(f),
             ErrorKind::CacheWrite(err) => err.fmt(f),
             ErrorKind::CopyBufferImage(err) => err.fmt(f),
+            ErrorKind::Build(err) => err.fmt(f),
+            ErrorKind::CommandBufferExec(err) => err.fmt(f),
             ErrorKind::DrawIndirect(err) => err.fmt(f),
             ErrorKind::DeviceMemoryAlloc(err) => err.fmt(f),
             ErrorKind::SamplerCreation(err) => err.fmt(f),
@@ -138,6 +156,8 @@ impl error::Error for Error {
             ErrorKind::CacheRead(err) => err,
             ErrorKind::CacheWrite(err) => err,
             ErrorKind::CopyBufferImage(err) => err,
+            ErrorKind::Build(err) => err,
+            ErrorKind::CommandBufferExec(err) => err,
             ErrorKind::DrawIndirect(err) => err,
             ErrorKind::DeviceMemoryAlloc(err) => err,
             ErrorKind::SamplerCreation(err) => err,

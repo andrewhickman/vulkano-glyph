@@ -1,5 +1,6 @@
 #[macro_use]
 extern crate vulkano;
+extern crate env_logger;
 extern crate rusttype;
 extern crate vulkano_glyph;
 extern crate vulkano_win;
@@ -30,6 +31,8 @@ use std::mem;
 use std::sync::Arc;
 
 fn main() {
+    env_logger::init();
+
     let instance = {
         let extensions = vulkano_win::required_extensions();
         Instance::new(None, &extensions, None).expect("failed to create Vulkan instance")
@@ -116,7 +119,6 @@ fn main() {
 
     let mut glyph_brush = GlyphBrush::new(
         &device,
-        physical.queue_families(),
         Subpass::from(
             render_pass.clone() as Arc<RenderPassAbstract + Send + Sync>,
             0,
@@ -182,12 +184,12 @@ fn main() {
             font,
             "Hello, world!",
             (100.0, 100.0),
-            50.0,
+            100.0,
             1.0,
             [0.0, 0.0, 1.0, 1.0],
         );
         let copy_future = glyph_brush
-            .cache_queued(Arc::clone(&queue))
+            .cache_queued(&queue)
             .unwrap()
             .map(|f| Box::new(f) as Box<GpuFuture + Send + Sync>)
             .unwrap_or_else(|| Box::new(now(device.clone())));
