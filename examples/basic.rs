@@ -6,9 +6,9 @@ extern crate vulkano_glyph;
 extern crate vulkano_win;
 extern crate winit;
 
+use std::env;
 use std::fs::File;
 use std::io::Read;
-use std::{env, iter};
 
 use rusttype::{point, Font, Scale};
 use vulkano::command_buffer::AutoCommandBufferBuilder;
@@ -136,6 +136,22 @@ fn main() {
     let mut recreate_swapchain = false;
     let mut previous_frame_end = Box::new(now(device.clone())) as Box<GpuFuture>;
 
+    let section1 = glyph_brush.queue_glyphs(
+        font.layout("Hello, world!", Scale::uniform(100.0), point(0.0, 100.0)),
+        0,
+        [0.0, 0.0, 1.0, 1.0],
+    );
+    let section2 = glyph_brush.queue_glyphs(
+        font.layout("Lower!", Scale::uniform(100.0), point(0.0, 150.0)),
+        0,
+        [0.0, 1.0, 0.0, 1.0],
+    );
+
+    let mut copy_future = glyph_brush
+        .cache_sections(&queue, vec![&section1, &section2].iter().cloned())
+        .unwrap()
+        .map(|f| Box::new(f) as Box<GpuFuture + Send + Sync>);
+
     loop {
         previous_frame_end.cleanup_finished();
 
@@ -180,23 +196,8 @@ fn main() {
             mem::replace(&mut framebuffers, new_framebuffers);
         }
 
-        let section1 = glyph_brush.queue_glyphs(
-            font.layout("Hello, world!", Scale::uniform(100.0), point(0.0, 100.0)),
-            0,
-            [0.0, 0.0, 1.0, 1.0],
-        );
-        let section2 = glyph_brush.queue_glyphs(
-            font.layout("Lower!", Scale::uniform(100.0), point(0.0, 150.0)),
-            0,
-            [0.0, 1.0, 0.0, 1.0],
-        );
-
-        let sections = [section1, section2];
-
-        let copy_future = glyph_brush
-            .cache_sections(&queue, sections.iter())
-            .unwrap()
-            .map(|f| Box::new(f) as Box<GpuFuture + Send + Sync>)
+        let copy_future = copy_future
+            .take()
             .unwrap_or_else(|| Box::new(now(device.clone())));
 
         let (image_num, acquire_future) =
@@ -221,7 +222,7 @@ fn main() {
         let command_buffer = glyph_brush
             .draw(
                 command_buffer,
-                iter::once(&sections[1]),
+                &section1,
                 [
                     [1.0, 0.0, 0.0, 0.0],
                     [0.0, 1.0, 0.0, 0.0],
@@ -234,7 +235,7 @@ fn main() {
         let command_buffer = glyph_brush
             .draw(
                 command_buffer,
-                iter::once(&sections[0]),
+                &section2,
                 [
                     [1.0, 0.0, 0.0, 0.0],
                     [0.0, 1.0, 0.0, 0.0],

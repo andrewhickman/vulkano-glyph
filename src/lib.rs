@@ -46,7 +46,8 @@ pub struct Section {
 }
 
 impl<'font> GlyphBrush<'font> {
-    pub fn new<'a>(
+    /// Create a new `GlyphBrush` for use in the given subpass.
+    pub fn new(
         device: &Arc<Device>,
         subpass: Subpass<Arc<RenderPassAbstract + Send + Sync>>,
     ) -> Result<Self> {
@@ -59,6 +60,8 @@ impl<'font> GlyphBrush<'font> {
         })
     }
 
+    /// Queue some glyphs for later drawing. The `Section` returned is valid until a later call
+    /// to `GlyphBrush::clear`.
     pub fn queue_glyphs<I>(&mut self, glyphs: I, font: FontId, color: [f32; 4]) -> Section
     where
         I: IntoIterator<Item = PositionedGlyph<'font>>,
@@ -69,6 +72,9 @@ impl<'font> GlyphBrush<'font> {
         Section { range, font, color }
     }
 
+    /// Cache some sections of text. If a future is returned, it should be executed before
+    /// drawing those sections. This may overwrite cached sections from previous calls to this
+    /// function.
     pub fn cache_sections<'a, I>(
         &mut self,
         queue: &Arc<Queue>,
@@ -88,26 +94,28 @@ impl<'font> GlyphBrush<'font> {
         )
     }
 
-    pub fn draw<'a, I>(
+    /// Draw a section of text to the screen. The section should have been previously cached
+    /// using `GlyphBrush::cache_sections`.
+    pub fn draw(
         &mut self,
-        mut cmd: AutoCommandBufferBuilder,
-        sections: I,
+        cmd: AutoCommandBufferBuilder,
+        section: &Section,
         transform: [[f32; 4]; 4],
         dims: [u32; 2],
-    ) -> Result<AutoCommandBufferBuilder>
-    where
-        I: IntoIterator<Item = &'a Section>,
-    {
-        for section in sections {
-            cmd = self.draw.draw(
-                cmd,
-                &self.glyphs[section.range.clone()],
-                section,
-                &self.cache,
-                transform,
-                dims,
-            )?;
-        }
-        Ok(cmd)
+    ) -> Result<AutoCommandBufferBuilder> {
+        self.draw.draw(
+            cmd,
+            &self.glyphs[section.range.clone()],
+            section,
+            &self.cache,
+            transform,
+            dims,
+        )
+    }
+
+    /// Clear the internal glyph buffer. This invalidates all `Section` objects created by this
+    /// `GlyphBrush`.
+    pub fn clear(&mut self) {
+        self.glyphs.clear();
     }
 }
