@@ -1,5 +1,7 @@
 #[macro_use]
 extern crate vulkano;
+#[macro_use]
+extern crate vulkano_shader_derive;
 extern crate env_logger;
 extern crate rusttype;
 extern crate vulkano_glyph;
@@ -11,11 +13,14 @@ use std::fs::File;
 use std::io::Read;
 
 use rusttype::{point, Font, Scale};
-use vulkano::command_buffer::AutoCommandBufferBuilder;
+use vulkano::buffer::{BufferUsage, CpuAccessibleBuffer};
+use vulkano::command_buffer::{AutoCommandBufferBuilder, DynamicState};
 use vulkano::device::Device;
 use vulkano::framebuffer::Framebuffer;
 use vulkano::framebuffer::{RenderPassAbstract, Subpass};
 use vulkano::instance::Instance;
+use vulkano::pipeline::viewport::Viewport;
+use vulkano::pipeline::GraphicsPipeline;
 use vulkano::swapchain;
 use vulkano::swapchain::AcquireError;
 use vulkano::swapchain::PresentMode;
@@ -29,6 +34,97 @@ use vulkano_win::VkSurfaceBuild;
 
 use std::mem;
 use std::sync::Arc;
+
+fn init_triangle(
+    device: Arc<Device>,
+    subpass: Subpass<Arc<RenderPassAbstract + Send + Sync>>,
+) -> impl FnMut(AutoCommandBufferBuilder, [u32; 2]) -> AutoCommandBufferBuilder {
+    #[derive(Debug, Clone)]
+    struct Vertex {
+        position: [f32; 2],
+    }
+    impl_vertex!(Vertex, position);
+
+    let vertex_buffer = {
+        CpuAccessibleBuffer::from_iter(
+            device.clone(),
+            BufferUsage::all(),
+            [
+                Vertex {
+                    position: [-0.5, -0.25],
+                },
+                Vertex {
+                    position: [0.0, 0.5],
+                },
+                Vertex {
+                    position: [0.25, -0.1],
+                },
+            ].iter()
+                .cloned(),
+        ).expect("failed to create buffer")
+    };
+
+    mod vs {
+        #[derive(VulkanoShader)]
+        #[ty = "vertex"]
+        #[src = "
+#version 450
+layout(location = 0) in vec2 position;
+void main() {
+    gl_Position = vec4(position, 0.0, 1.0);
+}
+"]
+        #[allow(unused)]
+        struct Dummy;
+    }
+
+    mod fs {
+        #[derive(VulkanoShader)]
+        #[ty = "fragment"]
+        #[src = "
+#version 450
+layout(location = 0) out vec4 f_color;
+void main() {
+    f_color = vec4(1.0, 0.0, 0.0, 1.0);
+}
+"]
+        #[allow(unused)]
+        struct Dummy;
+    }
+
+    let vs = vs::Shader::load(device.clone()).expect("failed to create shader module");
+    let fs = fs::Shader::load(device.clone()).expect("failed to create shader module");
+
+    let pipeline = Arc::new(
+        GraphicsPipeline::start()
+            .vertex_input_single_buffer::<Vertex>()
+            .vertex_shader(vs.main_entry_point(), ())
+            .triangle_list()
+            .viewports_dynamic_scissors_irrelevant(1)
+            .fragment_shader(fs.main_entry_point(), ())
+            .render_pass(subpass)
+            .build(device.clone())
+            .unwrap(),
+    );
+
+    move |cmd, dimensions| {
+        cmd.draw(
+            pipeline.clone(),
+            DynamicState {
+                line_width: None,
+                viewports: Some(vec![Viewport {
+                    origin: [0.0, 0.0],
+                    dimensions: [dimensions[0] as f32, dimensions[1] as f32],
+                    depth_range: 0.0..1.0,
+                }]),
+                scissors: None,
+            },
+            vertex_buffer.clone(),
+            (),
+            (),
+        ).unwrap()
+    }
+}
 
 fn main() {
     env_logger::init();
@@ -117,6 +213,11 @@ fn main() {
     ).unwrap(),
     );
 
+    let subpass = Subpass::from(
+        render_pass.clone() as Arc<RenderPassAbstract + Send + Sync>,
+        0,
+    ).unwrap();
+
     let mut font_data = Vec::new();
     File::open(env::args_os().nth(1).unwrap())
         .expect("No font specified")
@@ -124,25 +225,19 @@ fn main() {
         .unwrap();
     let font = Font::from_bytes(font_data).unwrap();
 
-    let mut glyph_brush = GlyphBrush::new(
-        &device,
-        Subpass::from(
-            render_pass.clone() as Arc<RenderPassAbstract + Send + Sync>,
-            0,
-        ).unwrap(),
-    ).unwrap();
+    let mut glyph_brush = GlyphBrush::new(&device, subpass.clone()).unwrap();
 
     let mut framebuffers: Option<Vec<Arc<vulkano::framebuffer::Framebuffer<_, _>>>> = None;
     let mut recreate_swapchain = false;
     let mut previous_frame_end = Box::new(now(device.clone())) as Box<GpuFuture>;
 
     let section1 = glyph_brush.queue_glyphs(
-        font.layout("Hello, world!", Scale::uniform(100.0), point(0.0, 100.0)),
+        font.layout("Hello, world!", Scale::uniform(100.0), point(300.0, 450.0)),
         0,
         [0.0, 0.0, 1.0, 1.0],
     );
     let section2 = glyph_brush.queue_glyphs(
-        font.layout("Lower!", Scale::uniform(100.0), point(0.0, 150.0)),
+        font.layout("Lower!", Scale::uniform(100.0), point(300.0, 500.0)),
         0,
         [0.0, 1.0, 0.0, 1.0],
     );
@@ -151,6 +246,8 @@ fn main() {
         .cache_sections(&queue, vec![&section1, &section2].iter().cloned())
         .unwrap()
         .map(|f| Box::new(f) as Box<GpuFuture + Send + Sync>);
+
+    let mut draw_tringle = init_triangle(Arc::clone(&device), subpass);
 
     loop {
         previous_frame_end.cleanup_finished();
@@ -222,7 +319,7 @@ fn main() {
         let command_buffer = glyph_brush
             .draw(
                 command_buffer,
-                &section1,
+                &section2,
                 [
                     [1.0, 0.0, 0.0, 0.0],
                     [0.0, 1.0, 0.0, 0.0],
@@ -232,10 +329,11 @@ fn main() {
                 dimensions,
             )
             .unwrap();
+        let command_buffer = draw_tringle(command_buffer, dimensions);
         let command_buffer = glyph_brush
             .draw(
                 command_buffer,
-                &section2,
+                &section1,
                 [
                     [1.0, 0.0, 0.0, 0.0],
                     [0.0, 1.0, 0.0, 0.0],
