@@ -9,7 +9,6 @@ layout(location = 1) in vec2 br;
 layout(location = 2) in vec2 tex_tl;
 layout(location = 3) in vec2 tex_br;
 layout(location = 4) in vec4 color;
-layout(location = 5) in float z;
 
 layout(location = 0) out vec2 f_tex_pos;
 layout(location = 1) out vec4 f_color;
@@ -38,5 +37,5 @@ void main() {
     }
 
     f_color = color;
-    gl_Position = uniforms.transform * vec4(pos, z, 1.0);
+    gl_Position = uniforms.transform * vec4(pos, 0.0, 1.0);
 }

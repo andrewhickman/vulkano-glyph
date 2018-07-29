@@ -1,6 +1,7 @@
 use std::iter;
 use std::sync::Arc;
 
+use rusttype::PositionedGlyph;
 use vulkano::buffer::{BufferUsage, CpuBufferPool};
 use vulkano::command_buffer::{AutoCommandBufferBuilder, DrawIndirectCommand, DynamicState};
 use vulkano::descriptor::descriptor_set::FixedSizeDescriptorSetsPool;
@@ -12,7 +13,7 @@ use vulkano::pipeline::viewport::Viewport;
 use vulkano::pipeline::GraphicsPipeline;
 use vulkano::sampler::{Filter, MipmapMode, Sampler, SamplerAddressMode};
 
-use {Error, GlyphData, GpuCache};
+use {Error, GpuCache, Section};
 
 #[derive(Debug)]
 struct Vertex {
@@ -21,10 +22,9 @@ struct Vertex {
     tex_tl: [f32; 2],
     tex_br: [f32; 2],
     color: [f32; 4],
-    z: f32,
 }
 
-impl_vertex! { Vertex, tl, br, tex_tl, tex_br, color, z }
+impl_vertex! { Vertex, tl, br, tex_tl, tex_br, color }
 
 #[allow(unused)]
 mod vs {
@@ -106,15 +106,16 @@ impl Draw {
         })
     }
 
-    pub(crate) fn draw(
+    pub(crate) fn draw<'font>(
         &mut self,
         cmd: AutoCommandBufferBuilder,
-        data: &GlyphData,
-        cache: &GpuCache,
+        glyphs: &[PositionedGlyph<'font>],
+        section: &Section,
+        cache: &GpuCache<'font>,
         transform: [[f32; 4]; 4],
         [w, h]: [u32; 2],
     ) -> Result<AutoCommandBufferBuilder, Error> {
-        let vertices = text_vertices(data, cache, (w as f32, h as f32))?;
+        let vertices = text_vertices(glyphs, section, cache, (w as f32, h as f32))?;
         let instance_count = vertices.len() as u32;
         let vbuf = self.vbuf.chunk(vertices)?;
         let ubuf = self.ubuf.next(vs::ty::Data { transform })?;
@@ -146,13 +147,14 @@ impl Draw {
 }
 
 fn text_vertices<'font>(
-    data: &GlyphData,
+    glyphs: &[PositionedGlyph<'font>],
+    data: &Section,
     cache: &GpuCache<'font>,
     (screen_width, screen_height): (f32, f32),
 ) -> Result<impl ExactSizeIterator<Item = Vertex>, Error> {
-    let mut vertices = Vec::with_capacity(data.glyphs.len());
-    for gly in data.glyphs.iter() {
-        if let Some((mut uv_rect, screen_rect)) = cache.rect_for(data.font, gly)? {
+    let mut vertices = Vec::with_capacity(glyphs.len());
+    for gly in glyphs {
+        if let Some((mut uv_rect, screen_rect)) = cache.rect_for(data.font, &gly)? {
             vertices.push(Vertex {
                 tl: [
                     to_ndc(screen_rect.min.x, screen_width),
@@ -165,7 +167,6 @@ fn text_vertices<'font>(
                 tex_tl: [uv_rect.min.x, uv_rect.min.y],
                 tex_br: [uv_rect.max.x, uv_rect.max.y],
                 color: data.color,
-                z: data.z,
             });
         }
     }

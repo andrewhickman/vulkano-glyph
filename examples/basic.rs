@@ -6,11 +6,11 @@ extern crate vulkano_glyph;
 extern crate vulkano_win;
 extern crate winit;
 
-use std::env;
 use std::fs::File;
 use std::io::Read;
+use std::{env, iter};
 
-use rusttype::Font;
+use rusttype::{point, Font, Scale};
 use vulkano::command_buffer::AutoCommandBufferBuilder;
 use vulkano::device::Device;
 use vulkano::framebuffer::Framebuffer;
@@ -117,6 +117,13 @@ fn main() {
     ).unwrap(),
     );
 
+    let mut font_data = Vec::new();
+    File::open(env::args_os().nth(1).unwrap())
+        .expect("No font specified")
+        .read_to_end(&mut font_data)
+        .unwrap();
+    let font = Font::from_bytes(font_data).unwrap();
+
     let mut glyph_brush = GlyphBrush::new(
         &device,
         Subpass::from(
@@ -124,13 +131,6 @@ fn main() {
             0,
         ).unwrap(),
     ).unwrap();
-
-    let mut font_data = Vec::new();
-    File::open(env::args_os().nth(1).unwrap())
-        .unwrap()
-        .read_to_end(&mut font_data)
-        .unwrap();
-    let font = glyph_brush.add_font(Font::from_bytes(font_data).unwrap());
 
     let mut framebuffers: Option<Vec<Arc<vulkano::framebuffer::Framebuffer<_, _>>>> = None;
     let mut recreate_swapchain = false;
@@ -180,16 +180,21 @@ fn main() {
             mem::replace(&mut framebuffers, new_framebuffers);
         }
 
-        glyph_brush.queue(
-            font,
-            "Hello, world!",
-            (100.0, 100.0),
-            100.0,
-            1.0,
+        let section1 = glyph_brush.queue_glyphs(
+            font.layout("Hello, world!", Scale::uniform(100.0), point(0.0, 100.0)),
+            0,
             [0.0, 0.0, 1.0, 1.0],
         );
+        let section2 = glyph_brush.queue_glyphs(
+            font.layout("Lower!", Scale::uniform(100.0), point(0.0, 150.0)),
+            0,
+            [0.0, 1.0, 0.0, 1.0],
+        );
+
+        let sections = [section1, section2];
+
         let copy_future = glyph_brush
-            .cache_queued(&queue)
+            .cache_sections(&queue, sections.iter())
             .unwrap()
             .map(|f| Box::new(f) as Box<GpuFuture + Send + Sync>)
             .unwrap_or_else(|| Box::new(now(device.clone())));
@@ -216,6 +221,20 @@ fn main() {
         let command_buffer = glyph_brush
             .draw(
                 command_buffer,
+                iter::once(&sections[1]),
+                [
+                    [1.0, 0.0, 0.0, 0.0],
+                    [0.0, 1.0, 0.0, 0.0],
+                    [0.0, 0.0, 1.0, 0.0],
+                    [0.0, 0.0, 0.0, 1.0],
+                ],
+                dimensions,
+            )
+            .unwrap();
+        let command_buffer = glyph_brush
+            .draw(
+                command_buffer,
+                iter::once(&sections[0]),
                 [
                     [1.0, 0.0, 0.0, 0.0],
                     [0.0, 1.0, 0.0, 0.0],

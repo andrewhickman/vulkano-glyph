@@ -2,7 +2,6 @@
 extern crate vulkano;
 #[macro_use]
 extern crate vulkano_shader_derive;
-extern crate id_map;
 extern crate rusttype;
 #[macro_use]
 extern crate log;
@@ -12,12 +11,12 @@ mod draw;
 mod error;
 
 pub use self::cache::GpuCache;
-pub use self::error::{Error, Result};
+pub use self::error::{Error, ErrorKind, Result};
 
+use std::ops::Range;
 use std::sync::Arc;
 
-use id_map::{Id, IdMap};
-use rusttype::{point, Font, PositionedGlyph, Scale};
+use rusttype::PositionedGlyph;
 use vulkano::command_buffer::{
     AutoCommandBuffer, AutoCommandBufferBuilder, CommandBufferExecFuture,
 };
@@ -28,21 +27,23 @@ use vulkano::sync::NowFuture;
 
 use draw::Draw;
 
+/// A unique identifier representing a font. Assigning each `Font` a `FontId`
+/// is left to the user.
+pub type FontId = usize;
+
+/// Object responsible for drawing text to the screen.
 pub struct GlyphBrush<'font> {
-    fonts: IdMap<Font<'font>>,
-    queue: Vec<GlyphData<'font>>,
+    glyphs: Vec<PositionedGlyph<'font>>,
     cache: GpuCache<'font>,
     draw: Draw,
 }
 
-struct GlyphData<'font> {
-    glyphs: Vec<PositionedGlyph<'font>>,
+#[derive(Clone, Debug)]
+pub struct Section {
     font: FontId,
     color: [f32; 4],
-    z: f32,
+    range: Range<usize>,
 }
-
-pub type FontId = Id;
 
 impl<'font> GlyphBrush<'font> {
     pub fn new<'a>(
@@ -54,56 +55,58 @@ impl<'font> GlyphBrush<'font> {
         Ok(GlyphBrush {
             draw,
             cache,
-            queue: Vec::new(),
-            fonts: IdMap::new(),
+            glyphs: Vec::new(),
         })
     }
 
-    pub fn add_font(&mut self, font: Font<'font>) -> FontId {
-        self.fonts.insert(font)
+    pub fn queue_glyphs<I>(&mut self, glyphs: I, font: FontId, color: [f32; 4]) -> Section
+    where
+        I: IntoIterator<Item = PositionedGlyph<'font>>,
+    {
+        let old_len = self.glyphs.len();
+        self.glyphs.extend(glyphs);
+        let range = old_len..self.glyphs.len();
+        Section { range, font, color }
     }
 
-    pub fn queue(
-        &mut self,
-        font: FontId,
-        text: &str,
-        (x, y): (f32, f32),
-        size: f32,
-        z: f32,
-        color: [f32; 4],
-    ) {
-        let glyphs = self.fonts[font]
-            .layout(text, Scale::uniform(size), point(x, y))
-            .map(|gly| gly.standalone())
-            .collect();
-        self.queue.push(GlyphData {
-            font,
-            glyphs,
-            color,
-            z,
-        });
-    }
-
-    pub fn cache_queued(
+    pub fn cache_sections<'a, I>(
         &mut self,
         queue: &Arc<Queue>,
-    ) -> Result<Option<CommandBufferExecFuture<NowFuture, AutoCommandBuffer>>> {
+        sections: I,
+    ) -> Result<Option<CommandBufferExecFuture<NowFuture, AutoCommandBuffer>>>
+    where
+        I: Iterator<Item = &'a Section> + Clone,
+    {
+        let glyphs = &self.glyphs;
         self.cache.cache(
             queue,
-            self.queue
-                .iter()
-                .flat_map(|data| data.glyphs.iter().cloned().map(move |gly| (data.font, gly))),
+            sections.into_iter().flat_map(|section| {
+                glyphs[section.range.clone()]
+                    .iter()
+                    .map(move |gly| (section.font, gly.clone()))
+            }),
         )
     }
 
-    pub fn draw(
+    pub fn draw<'a, I>(
         &mut self,
         mut cmd: AutoCommandBufferBuilder,
+        sections: I,
         transform: [[f32; 4]; 4],
         dims: [u32; 2],
-    ) -> Result<AutoCommandBufferBuilder> {
-        for data in self.queue.drain(..) {
-            cmd = self.draw.draw(cmd, &data, &self.cache, transform, dims)?;
+    ) -> Result<AutoCommandBufferBuilder>
+    where
+        I: IntoIterator<Item = &'a Section>,
+    {
+        for section in sections {
+            cmd = self.draw.draw(
+                cmd,
+                &self.glyphs[section.range.clone()],
+                section,
+                &self.cache,
+                transform,
+                dims,
+            )?;
         }
         Ok(cmd)
     }

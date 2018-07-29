@@ -13,13 +13,15 @@ use vulkano::pipeline::GraphicsPipelineCreationError;
 use vulkano::sampler::SamplerCreationError;
 use vulkano::OomError;
 
+/// A type alias for Result<T, vulkano_glyph::Error>.
 pub type Result<T> = result::Result<T, Error>;
 
+/// An error that can occur when drawing text.
 #[derive(Debug)]
 pub struct Error(Box<ErrorKind>);
 
 impl Error {
-    pub fn new(kind: impl Into<Box<ErrorKind>>) -> Self {
+    fn new(kind: impl Into<Box<ErrorKind>>) -> Self {
         Error(kind.into())
     }
 
@@ -32,6 +34,7 @@ impl Error {
     }
 }
 
+/// The specific kind of an `Error`.
 #[derive(Debug)]
 pub enum ErrorKind {
     CacheRead(CacheReadErr),
