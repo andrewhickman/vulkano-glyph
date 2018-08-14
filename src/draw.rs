@@ -132,7 +132,7 @@ impl Draw {
             .pool
             .next()
             .add_buffer(ubuf)?
-            .add_sampled_image(cache.image(), Arc::clone(&self.sampler))?
+            .add_sampled_image(Arc::clone(cache.image()), Arc::clone(&self.sampler))?
             .build()?;
 
         Ok(cmd.draw_indirect(Arc::clone(&self.pipe), dynamic_state, vbuf, ibuf, set, ())?)

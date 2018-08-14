@@ -1,7 +1,7 @@
 use std::sync::Arc;
 use std::{iter, result};
 
-use rusttype::gpu_cache::{Cache, CacheBuilder, CacheWriteErr, TextureCoords};
+use rusttype::gpu_cache::{Cache, CacheBuilder, CacheReadErr, CacheWriteErr, TextureCoords};
 use rusttype::{PositionedGlyph, Rect};
 use vulkano::buffer::CpuBufferPool;
 use vulkano::command_buffer::{
@@ -9,7 +9,7 @@ use vulkano::command_buffer::{
 };
 use vulkano::device::{Device, Queue};
 use vulkano::format::R8Unorm;
-use vulkano::image::{Dimensions, ImageUsage, ImageViewAccess, StorageImage};
+use vulkano::image::{Dimensions, ImageUsage, StorageImage};
 use vulkano::sync::NowFuture;
 
 use {FontId, Result};
@@ -25,6 +25,7 @@ pub struct GpuCache<'font> {
 }
 
 impl<'font> GpuCache<'font> {
+    /// Create a new `GpuCache` for use on the given device.
     pub fn new<'a>(device: &Arc<Device>) -> Result<Self> {
         let (img, cache) = create(device, INITIAL_WIDTH, INITIAL_HEIGHT)?;
         let buf = CpuBufferPool::upload(Arc::clone(device));
@@ -32,15 +33,16 @@ impl<'font> GpuCache<'font> {
         Ok(GpuCache { cache, img, buf })
     }
 
-    pub fn queue_glyph(&mut self, font_id: FontId, glyph: PositionedGlyph<'font>) {
-        self.cache.queue_glyph(font_id, glyph)
-    }
-
-    pub fn cache(
+    /// Overwrite the cache with a new collection of glyphs. If the cache is too small, it
+    /// will be resized until it is big enough.
+    pub fn cache<I>(
         &mut self,
         queue: &Arc<Queue>,
-        glyphs: impl IntoIterator<Item = (FontId, PositionedGlyph<'font>)> + Clone,
-    ) -> Result<Option<CommandBufferExecFuture<NowFuture, AutoCommandBuffer>>> {
+        glyphs: I,
+    ) -> Result<Option<CommandBufferExecFuture<NowFuture, AutoCommandBuffer>>>
+    where
+        I: IntoIterator<Item = (FontId, PositionedGlyph<'font>)> + Clone,
+    {
         let mut result = Ok(None);
         while let Err(write_err) = self.try_cache(queue, glyphs.clone(), &mut result) {
             // Cache too small, grow it and retry.
@@ -63,12 +65,15 @@ impl<'font> GpuCache<'font> {
         })
     }
 
-    fn try_cache(
+    fn try_cache<I>(
         &mut self,
         queue: &Arc<Queue>,
-        glyphs: impl IntoIterator<Item = (FontId, PositionedGlyph<'font>)>,
+        glyphs: I,
         result: &mut Result<Option<AutoCommandBufferBuilder>>,
-    ) -> result::Result<(), CacheWriteErr> {
+    ) -> result::Result<(), CacheWriteErr>
+    where
+        I: IntoIterator<Item = (FontId, PositionedGlyph<'font>)>,
+    {
         for (font, gly) in glyphs {
             self.cache.queue_glyph(font, gly);
         }
@@ -84,16 +89,18 @@ impl<'font> GpuCache<'font> {
         })
     }
 
+    /// Get the coordinates of a glyph on the image.
     pub fn rect_for(
         &self,
         font_id: FontId,
         glyph: &PositionedGlyph,
-    ) -> Result<Option<TextureCoords>> {
-        self.cache.rect_for(font_id, glyph).map_err(From::from)
+    ) -> result::Result<Option<TextureCoords>, CacheReadErr> {
+        self.cache.rect_for(font_id, glyph)
     }
 
-    pub fn image(&self) -> impl ImageViewAccess {
-        Arc::clone(&self.img)
+    /// The GPU image containing cached glyphs.
+    pub fn image(&self) -> &Arc<StorageImage<R8Unorm>> {
+        &self.img
     }
 }
 

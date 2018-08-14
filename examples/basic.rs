@@ -116,6 +116,8 @@ void main() {
 fn main() {
     env_logger::init();
 
+    println!("{}", std::mem::size_of::<rusttype::PositionedGlyph>());
+
     let instance = {
         let extensions = vulkano_win::required_extensions();
         Instance::new(None, &extensions, None).expect("failed to create Vulkan instance")

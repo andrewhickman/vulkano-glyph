@@ -1,3 +1,6 @@
+//! This crate provides integration of `vulkano` with the font caching feature of `rusttype`, and
+//! a basic pipeline for drawing text to the screen.
+
 #[macro_use]
 extern crate vulkano;
 #[macro_use]
@@ -38,6 +41,7 @@ pub struct GlyphBrush<'font> {
     draw: Draw,
 }
 
+/// An index for a range of glyphs with the same colour and font.
 #[derive(Clone, Debug)]
 pub struct Section {
     font: FontId,

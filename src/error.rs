@@ -1,6 +1,6 @@
 use std::{error, fmt, result};
 
-use rusttype::gpu_cache::{CacheReadErr, CacheWriteErr};
+use rusttype::gpu_cache::CacheReadErr;
 use vulkano::command_buffer::{
     BuildError, CommandBufferExecError, CopyBufferImageError, DrawIndirectError,
 };
@@ -37,8 +37,8 @@ impl Error {
 /// The specific kind of an `Error`.
 #[derive(Debug)]
 pub enum ErrorKind {
+    /// A requested glyph was not in the cache.
     CacheRead(CacheReadErr),
-    CacheWrite(CacheWriteErr),
     Build(BuildError),
     CopyBufferImage(CopyBufferImageError),
     CommandBufferExec(CommandBufferExecError),
@@ -57,12 +57,6 @@ pub enum ErrorKind {
 impl From<CacheReadErr> for Error {
     fn from(err: CacheReadErr) -> Self {
         Error::new(ErrorKind::CacheRead(err))
-    }
-}
-
-impl From<CacheWriteErr> for Error {
-    fn from(err: CacheWriteErr) -> Self {
-        Error::new(ErrorKind::CacheWrite(err))
     }
 }
 
@@ -136,7 +130,6 @@ impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self.kind() {
             ErrorKind::CacheRead(err) => err.fmt(f),
-            ErrorKind::CacheWrite(err) => err.fmt(f),
             ErrorKind::CopyBufferImage(err) => err.fmt(f),
             ErrorKind::Build(err) => err.fmt(f),
             ErrorKind::CommandBufferExec(err) => err.fmt(f),
@@ -157,7 +150,6 @@ impl error::Error for Error {
     fn cause(&self) -> Option<&error::Error> {
         Some(match self.kind() {
             ErrorKind::CacheRead(err) => err,
-            ErrorKind::CacheWrite(err) => err,
             ErrorKind::CopyBufferImage(err) => err,
             ErrorKind::Build(err) => err,
             ErrorKind::CommandBufferExec(err) => err,
