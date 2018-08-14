@@ -9,7 +9,6 @@ use vulkano::descriptor::PipelineLayoutAbstract;
 use vulkano::device::Device;
 use vulkano::framebuffer::{RenderPassAbstract, Subpass};
 use vulkano::pipeline::vertex::SingleInstanceBufferDefinition;
-use vulkano::pipeline::viewport::Viewport;
 use vulkano::pipeline::GraphicsPipeline;
 use vulkano::sampler::{Filter, MipmapMode, Sampler, SamplerAddressMode};
 
@@ -67,14 +66,16 @@ impl Draw {
         let vs = vs::Shader::load(Arc::clone(device))?;
         let fs = fs::Shader::load(Arc::clone(device))?;
 
-        let pipe = Arc::new(GraphicsPipeline::start()
-            .vertex_input(SingleInstanceBufferDefinition::<Vertex>::new())
-            .vertex_shader(vs.main_entry_point(), ())
-            .triangle_strip()
-            .viewports_dynamic_scissors_irrelevant(1)
-            .fragment_shader(fs.main_entry_point(), ())
-            .render_pass(subpass)
-            .build(Arc::clone(device))?);
+        let pipe = Arc::new(
+            GraphicsPipeline::start()
+                .vertex_input(SingleInstanceBufferDefinition::<Vertex>::new())
+                .vertex_shader(vs.main_entry_point(), ())
+                .triangle_strip()
+                .viewports_dynamic_scissors_irrelevant(1)
+                .fragment_shader(fs.main_entry_point(), ())
+                .render_pass(subpass)
+                .build(Arc::clone(device))?,
+        );
 
         let vbuf = CpuBufferPool::new(Arc::clone(device), BufferUsage::vertex_buffer());
         let ubuf = CpuBufferPool::new(Arc::clone(device), BufferUsage::uniform_buffer());
@@ -112,6 +113,7 @@ impl Draw {
         glyphs: &[PositionedGlyph<'font>],
         section: &Section,
         cache: &GpuCache<'font>,
+        dynamic_state: &DynamicState,
         transform: [[f32; 4]; 4],
         [w, h]: [u32; 2],
     ) -> Result<AutoCommandBufferBuilder, Error> {
@@ -126,23 +128,14 @@ impl Draw {
             first_instance: 0,
         }))?;
 
-        let set = self.pool
+        let set = self
+            .pool
             .next()
             .add_buffer(ubuf)?
             .add_sampled_image(cache.image(), Arc::clone(&self.sampler))?
             .build()?;
 
-        let state = DynamicState {
-            line_width: None,
-            viewports: Some(vec![Viewport {
-                origin: [0.0, 0.0],
-                dimensions: [w as f32, h as f32],
-                depth_range: 0.0..1.0,
-            }]),
-            scissors: None,
-        };
-
-        Ok(cmd.draw_indirect(Arc::clone(&self.pipe), state, vbuf, ibuf, set, ())?)
+        Ok(cmd.draw_indirect(Arc::clone(&self.pipe), dynamic_state, vbuf, ibuf, set, ())?)
     }
 }
 

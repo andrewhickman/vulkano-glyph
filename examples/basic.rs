@@ -38,7 +38,7 @@ use std::sync::Arc;
 fn init_triangle(
     device: Arc<Device>,
     subpass: Subpass<Arc<RenderPassAbstract + Send + Sync>>,
-) -> impl FnMut(AutoCommandBufferBuilder, [u32; 2]) -> AutoCommandBufferBuilder {
+) -> impl FnMut(AutoCommandBufferBuilder, &DynamicState) -> AutoCommandBufferBuilder {
     #[derive(Debug, Clone)]
     struct Vertex {
         position: [f32; 2],
@@ -107,22 +107,9 @@ void main() {
             .unwrap(),
     );
 
-    move |cmd, dimensions| {
-        cmd.draw(
-            pipeline.clone(),
-            DynamicState {
-                line_width: None,
-                viewports: Some(vec![Viewport {
-                    origin: [0.0, 0.0],
-                    dimensions: [dimensions[0] as f32, dimensions[1] as f32],
-                    depth_range: 0.0..1.0,
-                }]),
-                scissors: None,
-            },
-            vertex_buffer.clone(),
-            (),
-            (),
-        ).unwrap()
+    move |cmd, state| {
+        cmd.draw(pipeline.clone(), state, vertex_buffer.clone(), (), ())
+            .unwrap()
     }
 }
 
@@ -247,7 +234,17 @@ fn main() {
         .unwrap()
         .map(|f| Box::new(f) as Box<GpuFuture + Send + Sync>);
 
-    let mut draw_tringle = init_triangle(Arc::clone(&device), subpass);
+    let mut draw_triangle = init_triangle(Arc::clone(&device), subpass);
+
+    let mut state = DynamicState {
+        line_width: None,
+        viewports: Some(vec![Viewport {
+            origin: [0.0, 0.0],
+            dimensions: [dimensions[0] as f32, dimensions[1] as f32],
+            depth_range: 0.0..1.0,
+        }]),
+        scissors: None,
+    };
 
     loop {
         previous_frame_end.cleanup_finished();
@@ -271,6 +268,16 @@ fn main() {
             mem::replace(&mut images, new_images);
 
             framebuffers = None;
+
+            state = DynamicState {
+                line_width: None,
+                viewports: Some(vec![Viewport {
+                    origin: [0.0, 0.0],
+                    dimensions: [dimensions[0] as f32, dimensions[1] as f32],
+                    depth_range: 0.0..1.0,
+                }]),
+                scissors: None,
+            };
 
             recreate_swapchain = false;
         }
@@ -320,6 +327,7 @@ fn main() {
             .draw(
                 command_buffer,
                 &section2,
+                &state,
                 [
                     [1.0, 0.0, 0.0, 0.0],
                     [0.0, 1.0, 0.0, 0.0],
@@ -329,11 +337,12 @@ fn main() {
                 dimensions,
             )
             .unwrap();
-        let command_buffer = draw_tringle(command_buffer, dimensions);
+        let command_buffer = draw_triangle(command_buffer, &state);
         let command_buffer = glyph_brush
             .draw(
                 command_buffer,
                 &section1,
+                &state,
                 [
                     [1.0, 0.0, 0.0, 0.0],
                     [0.0, 1.0, 0.0, 0.0],

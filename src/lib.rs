@@ -18,7 +18,7 @@ use std::sync::Arc;
 
 use rusttype::PositionedGlyph;
 use vulkano::command_buffer::{
-    AutoCommandBuffer, AutoCommandBufferBuilder, CommandBufferExecFuture,
+    AutoCommandBuffer, AutoCommandBufferBuilder, CommandBufferExecFuture, DynamicState,
 };
 use vulkano::device::Device;
 use vulkano::device::Queue;
@@ -100,6 +100,7 @@ impl<'font> GlyphBrush<'font> {
         &mut self,
         cmd: AutoCommandBufferBuilder,
         section: &Section,
+        state: &DynamicState,
         transform: [[f32; 4]; 4],
         dims: [u32; 2],
     ) -> Result<AutoCommandBufferBuilder> {
@@ -108,6 +109,7 @@ impl<'font> GlyphBrush<'font> {
             &self.glyphs[section.range.clone()],
             section,
             &self.cache,
+            state,
             transform,
             dims,
         )
