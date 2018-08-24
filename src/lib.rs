@@ -85,7 +85,7 @@ impl<'font> GlyphBrush<'font> {
         sections: I,
     ) -> Result<Option<CommandBufferExecFuture<NowFuture, AutoCommandBuffer>>>
     where
-        I: Iterator<Item = &'a Section> + Clone,
+        I: Iterator<Item = &'a Section>,
     {
         let glyphs = &self.glyphs;
         self.cache.cache(

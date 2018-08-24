@@ -1,7 +1,7 @@
 use std::sync::Arc;
 use std::{iter, result};
 
-use rusttype::gpu_cache::{Cache, CacheBuilder, CacheReadErr, CacheWriteErr, TextureCoords};
+use rusttype::gpu_cache::{Cache, CacheReadErr, CacheWriteErr, TextureCoords};
 use rusttype::{PositionedGlyph, Rect};
 use vulkano::buffer::CpuBufferPool;
 use vulkano::command_buffer::{
@@ -27,8 +27,11 @@ pub struct GpuCache<'font> {
 impl<'font> GpuCache<'font> {
     /// Create a new `GpuCache` for use on the given device.
     pub fn new<'a>(device: &Arc<Device>) -> Result<Self> {
-        let (img, cache) = create(device, INITIAL_WIDTH, INITIAL_HEIGHT)?;
+        let img = create_image(device, INITIAL_WIDTH, INITIAL_HEIGHT)?;
         let buf = CpuBufferPool::upload(Arc::clone(device));
+        let cache = Cache::builder()
+            .dimensions(INITIAL_WIDTH, INITIAL_HEIGHT)
+            .build();
 
         Ok(GpuCache { cache, img, buf })
     }
@@ -41,20 +44,26 @@ impl<'font> GpuCache<'font> {
         glyphs: I,
     ) -> Result<Option<CommandBufferExecFuture<NowFuture, AutoCommandBuffer>>>
     where
-        I: IntoIterator<Item = (FontId, PositionedGlyph<'font>)> + Clone,
+        I: IntoIterator<Item = (FontId, PositionedGlyph<'font>)>,
     {
+        for (font, gly) in glyphs {
+            self.cache.queue_glyph(font, gly);
+        }
+
         let mut result = Ok(None);
-        while let Err(write_err) = self.try_cache(queue, glyphs.clone(), &mut result) {
-            // Cache too small, grow it and retry.
+        while let Err(write_err) = self.try_cache(queue, &mut result) {
             let (old_w, old_h) = self.cache.dimensions();
             let (new_w, new_h) = (old_w * 2, old_h * 2);
+            // Cache too small, grow itand retry.
             info!(
                 "Resizing glyph cache from {}×{} to {}×{}. (Reason: {})",
                 old_w, old_h, new_w, new_h, write_err
             );
-            let (new_img, new_cache) = create(queue.device(), new_w, new_h)?;
-            self.img = new_img;
-            self.cache = new_cache;
+            self.cache
+                .to_builder()
+                .dimensions(new_w, new_h)
+                .rebuild(&mut self.cache);
+            self.img = create_image(queue.device(), new_w, new_h)?;
         }
 
         result.and_then(|cmd| {
@@ -65,19 +74,11 @@ impl<'font> GpuCache<'font> {
         })
     }
 
-    fn try_cache<I>(
+    fn try_cache(
         &mut self,
         queue: &Arc<Queue>,
-        glyphs: I,
         result: &mut Result<Option<AutoCommandBufferBuilder>>,
-    ) -> result::Result<(), CacheWriteErr>
-    where
-        I: IntoIterator<Item = (FontId, PositionedGlyph<'font>)>,
-    {
-        for (font, gly) in glyphs {
-            self.cache.queue_glyph(font, gly);
-        }
-
+    ) -> result::Result<(), CacheWriteErr> {
         let GpuCache { cache, buf, img } = self;
         cache.cache_queued(|rect, data| {
             let cmd = match result {
@@ -104,11 +105,11 @@ impl<'font> GpuCache<'font> {
     }
 }
 
-fn create<'font>(
+fn create_image(
     device: &Arc<Device>,
     width: u32,
     height: u32,
-) -> Result<(Arc<StorageImage<R8Unorm>>, Cache<'font>)> {
+) -> Result<Arc<StorageImage<R8Unorm>>> {
     let img = StorageImage::with_usage(
         Arc::clone(device),
         Dimensions::Dim2d { width, height },
@@ -121,14 +122,7 @@ fn create<'font>(
         },
         iter::empty(),
     )?;
-
-    let cache = CacheBuilder {
-        width,
-        height,
-        ..Default::default()
-    }.build();
-
-    Ok((img, cache))
+    Ok(img)
 }
 
 fn upload(
