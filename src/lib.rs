@@ -106,7 +106,7 @@ impl<'font> GlyphBrush<'font> {
         section: &Section,
         state: &DynamicState,
         transform: [[f32; 4]; 4],
-        dims: [u32; 2],
+        dims: [f32; 2],
     ) -> Result<AutoCommandBufferBuilder> {
         self.draw.draw(
             cmd,

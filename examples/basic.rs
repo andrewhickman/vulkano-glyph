@@ -334,7 +334,7 @@ fn main() {
                     [0.0, 0.0, 1.0, 0.0],
                     [0.0, 0.0, 0.0, 1.0],
                 ],
-                dimensions,
+                [dimensions[0] as f32, dimensions[1] as f32],
             )
             .unwrap();
         let command_buffer = draw_triangle(command_buffer, &state);
@@ -349,7 +349,7 @@ fn main() {
                     [0.0, 0.0, 1.0, 0.0],
                     [0.0, 0.0, 0.0, 1.0],
                 ],
-                dimensions,
+                [dimensions[0] as f32, dimensions[1] as f32],
             )
             .unwrap();
 

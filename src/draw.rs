@@ -115,9 +115,9 @@ impl Draw {
         cache: &GpuCache<'font>,
         dynamic_state: &DynamicState,
         transform: [[f32; 4]; 4],
-        [w, h]: [u32; 2],
+        dims: [f32; 2],
     ) -> Result<AutoCommandBufferBuilder, Error> {
-        let vertices = text_vertices(glyphs, section, cache, (w as f32, h as f32))?;
+        let vertices = text_vertices(glyphs, section, cache, dims)?;
         let instance_count = vertices.len() as u32;
         let vbuf = self.vbuf.chunk(vertices)?;
         let ubuf = self.ubuf.next(vs::ty::Data { transform })?;
@@ -143,7 +143,7 @@ fn text_vertices<'font>(
     glyphs: &[PositionedGlyph<'font>],
     data: &Section,
     cache: &GpuCache<'font>,
-    (screen_width, screen_height): (f32, f32),
+    [screen_width, screen_height]: [f32; 2],
 ) -> Result<impl ExactSizeIterator<Item = Vertex>, Error> {
     let mut vertices = Vec::with_capacity(glyphs.len());
     for gly in glyphs {
