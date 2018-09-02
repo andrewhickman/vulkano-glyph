@@ -326,7 +326,7 @@ fn main() {
         let command_buffer = glyph_brush
             .draw(
                 command_buffer,
-                &section2,
+                Some(&section2),
                 &state,
                 [
                     [1.0, 0.0, 0.0, 0.0],
@@ -341,7 +341,7 @@ fn main() {
         let command_buffer = glyph_brush
             .draw(
                 command_buffer,
-                &section1,
+                Some(&section1),
                 &state,
                 [
                     [1.0, 0.0, 0.0, 0.0],

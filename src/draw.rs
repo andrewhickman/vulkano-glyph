@@ -107,17 +107,20 @@ impl Draw {
         })
     }
 
-    pub(crate) fn draw<'font>(
+    pub(crate) fn draw<'a, 'font, I>(
         &mut self,
         cmd: AutoCommandBufferBuilder,
         glyphs: &[PositionedGlyph<'font>],
-        section: &Section,
+        sections: I,
         cache: &GpuCache<'font>,
         dynamic_state: &DynamicState,
         transform: [[f32; 4]; 4],
         dims: [f32; 2],
-    ) -> Result<AutoCommandBufferBuilder, Error> {
-        let vertices = text_vertices(glyphs, section, cache, dims)?;
+    ) -> Result<AutoCommandBufferBuilder, Error>
+    where
+        I: IntoIterator<Item = &'a Section>,
+    {
+        let vertices = text_vertices(glyphs, sections, cache, dims)?;
         let instance_count = vertices.len() as u32;
         let vbuf = self.vbuf.chunk(vertices)?;
         let ubuf = self.ubuf.next(vs::ty::Data { transform })?;
@@ -139,31 +142,36 @@ impl Draw {
     }
 }
 
-fn text_vertices<'font>(
+fn text_vertices<'a, 'font, I>(
     glyphs: &[PositionedGlyph<'font>],
-    data: &Section,
+    sections: I,
     cache: &GpuCache<'font>,
     [screen_width, screen_height]: [f32; 2],
-) -> Result<impl ExactSizeIterator<Item = Vertex>, Error> {
-    let mut vertices = Vec::with_capacity(glyphs.len());
-    for gly in glyphs {
-        if let Some((mut uv_rect, screen_rect)) = cache.rect_for(data.font, &gly)? {
-            vertices.push(Vertex {
-                tl: [
-                    to_ndc(screen_rect.min.x, screen_width),
-                    to_ndc(screen_rect.min.y, screen_height),
-                ],
-                br: [
-                    to_ndc(screen_rect.max.x, screen_width),
-                    to_ndc(screen_rect.max.y, screen_height),
-                ],
-                tex_tl: [uv_rect.min.x, uv_rect.min.y],
-                tex_br: [uv_rect.max.x, uv_rect.max.y],
-                color: data.color,
-            });
+) -> Result<Vec<Vertex>, Error>
+where
+    I: IntoIterator<Item = &'a Section>,
+{
+    let mut vertices = Vec::new();
+    for section in sections {
+        for gly in &glyphs[section.range.clone()] {
+            if let Some((mut uv_rect, screen_rect)) = cache.rect_for(section.font, &gly)? {
+                vertices.push(Vertex {
+                    tl: [
+                        to_ndc(screen_rect.min.x, screen_width),
+                        to_ndc(screen_rect.min.y, screen_height),
+                    ],
+                    br: [
+                        to_ndc(screen_rect.max.x, screen_width),
+                        to_ndc(screen_rect.max.y, screen_height),
+                    ],
+                    tex_tl: [uv_rect.min.x, uv_rect.min.y],
+                    tex_br: [uv_rect.max.x, uv_rect.max.y],
+                    color: section.color,
+                });
+            }
         }
     }
-    Ok(vertices.into_iter())
+    Ok(vertices)
 }
 
 fn to_ndc(x: i32, size: f32) -> f32 {

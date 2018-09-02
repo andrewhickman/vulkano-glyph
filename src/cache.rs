@@ -56,7 +56,7 @@ impl<'font> GpuCache<'font> {
             let (new_w, new_h) = (old_w * 2, old_h * 2);
             // Cache too small, grow itand retry.
             info!(
-                "Resizing glyph cache from {}×{} to {}×{}. (Reason: {})",
+                "Resizing glyph cache from {}×{} to {}×{}. (Reason: {}).",
                 old_w, old_h, new_w, new_h, write_err
             );
             self.cache

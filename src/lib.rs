@@ -85,7 +85,7 @@ impl<'font> GlyphBrush<'font> {
         sections: I,
     ) -> Result<Option<CommandBufferExecFuture<NowFuture, AutoCommandBuffer>>>
     where
-        I: Iterator<Item = &'a Section>,
+        I: IntoIterator<Item = &'a Section>,
     {
         let glyphs = &self.glyphs;
         self.cache.cache(
@@ -100,18 +100,21 @@ impl<'font> GlyphBrush<'font> {
 
     /// Draw a section of text to the screen. The section should have been previously cached
     /// using `GlyphBrush::cache_sections`.
-    pub fn draw(
+    pub fn draw<'a, I>(
         &mut self,
         cmd: AutoCommandBufferBuilder,
-        section: &Section,
+        sections: I,
         state: &DynamicState,
         transform: [[f32; 4]; 4],
         dims: [f32; 2],
-    ) -> Result<AutoCommandBufferBuilder> {
+    ) -> Result<AutoCommandBufferBuilder>
+    where
+        I: IntoIterator<Item = &'a Section>,
+    {
         self.draw.draw(
             cmd,
-            &self.glyphs[section.range.clone()],
-            section,
+            &self.glyphs,
+            sections,
             &self.cache,
             state,
             transform,
