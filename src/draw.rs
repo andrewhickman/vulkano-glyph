@@ -27,18 +27,18 @@ impl_vertex! { Vertex, tl, br, tex_tl, tex_br, color }
 
 #[allow(unused)]
 mod vs {
-    #[derive(VulkanoShader)]
-    #[ty = "vertex"]
-    #[path = "shader/vert.glsl"]
-    struct Dummy;
+	vulkano_shaders::shader! {
+        ty: "vertex",
+        path: "shader/vert.glsl",
+    }
 }
 
 #[allow(unused)]
 mod fs {
-    #[derive(VulkanoShader)]
-    #[ty = "fragment"]
-    #[path = "shader/frag.glsl"]
-    struct Dummy;
+	vulkano_shaders::shader! {
+        ty: "fragment",
+        path: "shader/frag.glsl"
+    }
 }
 
 type Pipeline = Arc<
