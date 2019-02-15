@@ -1,7 +1,7 @@
 [package]
 name = "vulkano-glyph"
 description = "Text rendering with vulkano."
-version = "0.2.0"
+version = "0.3.0"
 authors = ["Andrew Hickman <andrew.hickman1@sky.com>"]
 repository = "https://github.com/andrewhickman/vulkano-glyph"
 documentation = "https://docs.rs/vulkano-glyph"
@@ -10,7 +10,7 @@ readme = "README.md"
 
 [dependencies]
 vulkano = "0.11.0"
-vulkano-shaders = "0.11"
+vulkano-shaders = "0.11.0"
 log = "0.4.0"
 
 [dependencies.rusttype]
@@ -20,4 +20,4 @@ features = ["gpu_cache"]
 [dev-dependencies]
 vulkano-win = "0.11.0"
 winit = "0.18.0"
-env_logger = "0.5.10"
+env_logger = "0.6.0"

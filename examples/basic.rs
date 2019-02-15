@@ -1,6 +1,5 @@
 #[macro_use]
 extern crate vulkano;
-#[macro_use]
 extern crate vulkano_shaders;
 extern crate env_logger;
 extern crate rusttype;
