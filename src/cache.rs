@@ -87,7 +87,7 @@ impl<'font> GpuCache<'font> {
             };
 
             *result = upload(rect, data, queue, cmd, img, buf).map(Some);
-        });
+        })?;
         Ok(())
     }
 
