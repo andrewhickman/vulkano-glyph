@@ -87,7 +87,8 @@ impl<'font> GpuCache<'font> {
             };
 
             *result = upload(rect, data, queue, cmd, img, buf).map(Some);
-        })
+        })?;
+        Ok(())
     }
 
     /// Get the coordinates of a glyph on the image.

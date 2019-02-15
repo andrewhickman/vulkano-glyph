@@ -1,7 +1,7 @@
 #[macro_use]
 extern crate vulkano;
 #[macro_use]
-extern crate vulkano_shader_derive;
+extern crate vulkano_shaders;
 extern crate env_logger;
 extern crate rusttype;
 extern crate vulkano_glyph;
@@ -65,31 +65,29 @@ fn init_triangle(
     };
 
     mod vs {
-        #[derive(VulkanoShader)]
-        #[ty = "vertex"]
-        #[src = "
+	vulkano_shaders::shader! {
+        ty: "vertex",
+        src: "
 #version 450
 layout(location = 0) in vec2 position;
 void main() {
     gl_Position = vec4(position, 0.0, 1.0);
 }
-"]
-        #[allow(unused)]
-        struct Dummy;
+"
+    }
     }
 
     mod fs {
-        #[derive(VulkanoShader)]
-        #[ty = "fragment"]
-        #[src = "
+	vulkano_shaders::shader! {
+        ty: "fragment",
+        src: "
 #version 450
 layout(location = 0) out vec4 f_color;
 void main() {
     f_color = vec4(1.0, 0.0, 0.0, 1.0);
 }
-"]
-        #[allow(unused)]
-        struct Dummy;
+"
+    }
     }
 
     let vs = vs::Shader::load(device.clone()).expect("failed to create shader module");
