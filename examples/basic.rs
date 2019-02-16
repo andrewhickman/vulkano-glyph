@@ -7,11 +7,14 @@ extern crate vulkano_shaders;
 extern crate vulkano_win;
 extern crate winit;
 
-use std::env;
 use std::fs::File;
 use std::io::Read;
+use std::mem;
+use std::path::PathBuf;
+use std::sync::Arc;
 
 use rusttype::{point, Font, Scale};
+use structopt::StructOpt;
 use vulkano::buffer::{BufferUsage, CpuAccessibleBuffer};
 use vulkano::command_buffer::{AutoCommandBufferBuilder, DynamicState};
 use vulkano::device::Device;
@@ -31,8 +34,11 @@ use vulkano::sync::GpuFuture;
 use vulkano_glyph::GlyphBrush;
 use vulkano_win::VkSurfaceBuild;
 
-use std::mem;
-use std::sync::Arc;
+#[derive(StructOpt)]
+struct Args {
+    #[structopt(name = "FONT", help = "A .ttf font file to draw", parse(from_os_str))]
+    font: PathBuf,
+}
 
 fn init_triangle(
     device: Arc<Device>,
@@ -114,6 +120,8 @@ void main() {
 
 fn main() {
     env_logger::init();
+
+    let args = Args::from_args();
 
     let instance = {
         let extensions = vulkano_win::required_extensions();
@@ -209,7 +217,7 @@ fn main() {
     .unwrap();
 
     let mut font_data = Vec::new();
-    File::open(env::args_os().nth(1).expect("No font specified"))
+    File::open(args.font)
         .unwrap()
         .read_to_end(&mut font_data)
         .unwrap();

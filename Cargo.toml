@@ -22,3 +22,4 @@ features = ["gpu_cache"]
 vulkano-win = "0.11.0"
 winit = "0.18.0"
 env_logger = "0.6.0"
+structopt = "0.2.14"
