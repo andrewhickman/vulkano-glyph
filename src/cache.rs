@@ -54,10 +54,14 @@ impl<'font> GpuCache<'font> {
         while let Err(write_err) = self.try_cache(queue, &mut result) {
             let (old_w, old_h) = self.cache.dimensions();
             let (new_w, new_h) = (old_w * 2, old_h * 2);
-            // Cache too small, grow itand retry.
-            info!(
+            // Cache too small, grow it and retry.
+            log::info!(
                 "Resizing glyph cache from {}×{} to {}×{}. (Reason: {}).",
-                old_w, old_h, new_w, new_h, write_err
+                old_w,
+                old_h,
+                new_w,
+                new_h,
+                write_err
             );
             self.cache
                 .to_builder()

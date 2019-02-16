@@ -1,13 +1,6 @@
 //! This crate provides integration of `vulkano` with the font caching feature of `rusttype`, and
 //! a basic pipeline for drawing text to the screen.
 
-#[macro_use]
-extern crate vulkano;
-extern crate rusttype;
-extern crate vulkano_shaders;
-#[macro_use]
-extern crate log;
-
 mod cache;
 mod draw;
 mod error;

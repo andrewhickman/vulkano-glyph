@@ -8,6 +8,7 @@ use vulkano::descriptor::descriptor_set::FixedSizeDescriptorSetsPool;
 use vulkano::descriptor::PipelineLayoutAbstract;
 use vulkano::device::Device;
 use vulkano::framebuffer::{RenderPassAbstract, Subpass};
+use vulkano::impl_vertex;
 use vulkano::pipeline::vertex::SingleInstanceBufferDefinition;
 use vulkano::pipeline::GraphicsPipeline;
 use vulkano::sampler::{Filter, MipmapMode, Sampler, SamplerAddressMode};

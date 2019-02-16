@@ -1,12 +1,3 @@
-#[macro_use]
-extern crate vulkano;
-extern crate env_logger;
-extern crate rusttype;
-extern crate vulkano_glyph;
-extern crate vulkano_shaders;
-extern crate vulkano_win;
-extern crate winit;
-
 use std::fs::File;
 use std::io::Read;
 use std::mem;
@@ -18,19 +9,15 @@ use structopt::StructOpt;
 use vulkano::buffer::{BufferUsage, CpuAccessibleBuffer};
 use vulkano::command_buffer::{AutoCommandBufferBuilder, DynamicState};
 use vulkano::device::Device;
-use vulkano::framebuffer::Framebuffer;
-use vulkano::framebuffer::{RenderPassAbstract, Subpass};
+use vulkano::framebuffer::{Framebuffer, RenderPassAbstract, Subpass};
 use vulkano::instance::Instance;
 use vulkano::pipeline::viewport::Viewport;
 use vulkano::pipeline::GraphicsPipeline;
-use vulkano::swapchain;
-use vulkano::swapchain::AcquireError;
-use vulkano::swapchain::PresentMode;
-use vulkano::swapchain::SurfaceTransform;
-use vulkano::swapchain::Swapchain;
-use vulkano::swapchain::SwapchainCreationError;
-use vulkano::sync::now;
-use vulkano::sync::GpuFuture;
+use vulkano::swapchain::{
+    self, AcquireError, PresentMode, SurfaceTransform, Swapchain, SwapchainCreationError,
+};
+use vulkano::sync::{now, GpuFuture};
+use vulkano::{impl_vertex, single_pass_renderpass};
 use vulkano_glyph::GlyphBrush;
 use vulkano_win::VkSurfaceBuild;
 
