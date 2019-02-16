@@ -127,7 +127,7 @@ impl From<PersistentDescriptorSetBuildError> for Error {
 }
 
 impl fmt::Display for Error {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self.kind() {
             ErrorKind::CacheRead(err) => err.fmt(f),
             ErrorKind::CopyBufferImage(err) => err.fmt(f),
@@ -147,7 +147,7 @@ impl fmt::Display for Error {
 }
 
 impl error::Error for Error {
-    fn cause(&self) -> Option<&error::Error> {
+    fn cause(&self) -> Option<&dyn error::Error> {
         Some(match self.kind() {
             ErrorKind::CacheRead(err) => err,
             ErrorKind::CopyBufferImage(err) => err,

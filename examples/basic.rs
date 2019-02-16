@@ -1,9 +1,9 @@
 #[macro_use]
 extern crate vulkano;
-extern crate vulkano_shaders;
 extern crate env_logger;
 extern crate rusttype;
 extern crate vulkano_glyph;
+extern crate vulkano_shaders;
 extern crate vulkano_win;
 extern crate winit;
 
@@ -58,13 +58,15 @@ fn init_triangle(
                 Vertex {
                     position: [0.25, -0.1],
                 },
-            ].iter()
-                .cloned(),
-        ).expect("failed to create buffer")
+            ]
+            .iter()
+            .cloned(),
+        )
+        .expect("failed to create buffer")
     };
 
     mod vs {
-	vulkano_shaders::shader! {
+        vulkano_shaders::shader! {
         ty: "vertex",
         src: "
 #version 450
@@ -73,11 +75,11 @@ void main() {
     gl_Position = vec4(position, 0.0, 1.0);
 }
 "
-    }
+        }
     }
 
     mod fs {
-	vulkano_shaders::shader! {
+        vulkano_shaders::shader! {
         ty: "fragment",
         src: "
 #version 450
@@ -86,7 +88,7 @@ void main() {
     f_color = vec4(1.0, 0.0, 0.0, 1.0);
 }
 "
-    }
+        }
     }
 
     let vs = vs::Shader::load(device.clone()).expect("failed to create shader module");
@@ -149,7 +151,8 @@ fn main() {
             physical.supported_features(),
             &device_ext,
             [(queue, 0.5)].iter().cloned(),
-        ).expect("failed to create device")
+        )
+        .expect("failed to create device")
     };
 
     let queue = queues.next().unwrap();
@@ -177,34 +180,37 @@ fn main() {
             PresentMode::Fifo,
             true,
             None,
-        ).expect("failed to create swapchain")
+        )
+        .expect("failed to create swapchain")
     };
 
     let render_pass = Arc::new(
         single_pass_renderpass!(device.clone(),
-        attachments: {
-            color: {
-                load: Clear,
-                store: Store,
-                format: swapchain.format(),
-                samples: 1,
+            attachments: {
+                color: {
+                    load: Clear,
+                    store: Store,
+                    format: swapchain.format(),
+                    samples: 1,
+                }
+            },
+            pass: {
+                color: [color],
+                depth_stencil: {}
             }
-        },
-        pass: {
-            color: [color],
-            depth_stencil: {}
-        }
-    ).unwrap(),
+        )
+        .unwrap(),
     );
 
     let subpass = Subpass::from(
         render_pass.clone() as Arc<RenderPassAbstract + Send + Sync>,
         0,
-    ).unwrap();
+    )
+    .unwrap();
 
     let mut font_data = Vec::new();
-    File::open(env::args_os().nth(1).unwrap())
-        .expect("No font specified")
+    File::open(env::args_os().nth(1).expect("No font specified"))
+        .unwrap()
         .read_to_end(&mut font_data)
         .unwrap();
     let font = Font::from_bytes(font_data).unwrap();

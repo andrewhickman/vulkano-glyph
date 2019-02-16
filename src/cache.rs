@@ -12,7 +12,7 @@ use vulkano::format::R8Unorm;
 use vulkano::image::{Dimensions, ImageUsage, StorageImage};
 use vulkano::sync::NowFuture;
 
-use {FontId, Result};
+use crate::{FontId, Result};
 
 const INITIAL_WIDTH: u32 = 256;
 const INITIAL_HEIGHT: u32 = 256;
@@ -95,7 +95,7 @@ impl<'font> GpuCache<'font> {
     pub fn rect_for(
         &self,
         font_id: FontId,
-        glyph: &PositionedGlyph,
+        glyph: &PositionedGlyph<'_>,
     ) -> result::Result<Option<TextureCoords>, CacheReadErr> {
         self.cache.rect_for(font_id, glyph)
     }

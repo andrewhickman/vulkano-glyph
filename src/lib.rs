@@ -3,8 +3,8 @@
 
 #[macro_use]
 extern crate vulkano;
-extern crate vulkano_shaders;
 extern crate rusttype;
+extern crate vulkano_shaders;
 #[macro_use]
 extern crate log;
 
@@ -27,7 +27,7 @@ use vulkano::device::Queue;
 use vulkano::framebuffer::{RenderPassAbstract, Subpass};
 use vulkano::sync::NowFuture;
 
-use draw::Draw;
+use crate::draw::Draw;
 
 /// A unique identifier representing a font. Assigning each `Font` a `FontId`
 /// is left to the user.
@@ -52,7 +52,7 @@ impl<'font> GlyphBrush<'font> {
     /// Create a new `GlyphBrush` for use in the given subpass.
     pub fn new(
         device: &Arc<Device>,
-        subpass: Subpass<Arc<RenderPassAbstract + Send + Sync>>,
+        subpass: Subpass<Arc<dyn RenderPassAbstract + Send + Sync>>,
     ) -> Result<Self> {
         let draw = Draw::new(device, subpass)?;
         let cache = GpuCache::new(device)?;

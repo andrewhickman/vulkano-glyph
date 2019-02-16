@@ -12,7 +12,7 @@ use vulkano::pipeline::vertex::SingleInstanceBufferDefinition;
 use vulkano::pipeline::GraphicsPipeline;
 use vulkano::sampler::{Filter, MipmapMode, Sampler, SamplerAddressMode};
 
-use {Error, GpuCache, Section};
+use crate::{Error, GpuCache, Section};
 
 #[derive(Debug)]
 struct Vertex {
@@ -27,7 +27,7 @@ impl_vertex! { Vertex, tl, br, tex_tl, tex_br, color }
 
 #[allow(unused)]
 mod vs {
-	vulkano_shaders::shader! {
+    vulkano_shaders::shader! {
         ty: "vertex",
         path: "shader/vert.glsl",
     }
@@ -35,7 +35,7 @@ mod vs {
 
 #[allow(unused)]
 mod fs {
-	vulkano_shaders::shader! {
+    vulkano_shaders::shader! {
         ty: "fragment",
         path: "shader/frag.glsl"
     }
@@ -44,8 +44,8 @@ mod fs {
 type Pipeline = Arc<
     GraphicsPipeline<
         SingleInstanceBufferDefinition<Vertex>,
-        Box<PipelineLayoutAbstract + Send + Sync>,
-        Arc<RenderPassAbstract + Send + Sync>,
+        Box<dyn PipelineLayoutAbstract + Send + Sync>,
+        Arc<dyn RenderPassAbstract + Send + Sync>,
     >,
 >;
 
@@ -61,7 +61,7 @@ pub(crate) struct Draw {
 impl Draw {
     pub(crate) fn new(
         device: &Arc<Device>,
-        subpass: Subpass<Arc<RenderPassAbstract + Send + Sync>>,
+        subpass: Subpass<Arc<dyn RenderPassAbstract + Send + Sync>>,
     ) -> Result<Self, Error> {
         let vs = vs::Shader::load(Arc::clone(device))?;
         let fs = fs::Shader::load(Arc::clone(device))?;
@@ -154,7 +154,7 @@ where
     let mut vertices = Vec::new();
     for section in sections {
         for gly in &glyphs[section.range.clone()] {
-            if let Some((mut uv_rect, screen_rect)) = cache.rect_for(section.font, &gly)? {
+            if let Some((uv_rect, screen_rect)) = cache.rect_for(section.font, &gly)? {
                 vertices.push(Vertex {
                     tl: [
                         to_ndc(screen_rect.min.x, screen_width),
