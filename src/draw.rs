@@ -69,6 +69,7 @@ impl Draw {
 
         let pipe = Arc::new(
             GraphicsPipeline::start()
+                .blend_alpha_blending()
                 .vertex_input(SingleInstanceBufferDefinition::<Vertex>::new())
                 .vertex_shader(vs.main_entry_point(), ())
                 .triangle_strip()
