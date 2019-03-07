@@ -87,8 +87,8 @@ impl Draw {
 
         let sampler = Sampler::new(
             Arc::clone(device),
-            Filter::Linear,
-            Filter::Linear,
+            Filter::Nearest,
+            Filter::Nearest,
             MipmapMode::Nearest,
             SamplerAddressMode::ClampToEdge,
             SamplerAddressMode::ClampToEdge,
