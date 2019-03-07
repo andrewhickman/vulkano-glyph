@@ -28,7 +28,6 @@ void main() {
         case 2: // bottom right
             pos = br;
             f_tex_pos = tex_br;
-            f_color = vec4(0.0, 0.0, 1.0, 1.0);
             break;
         case 3: // top right
             pos = vec2(br.x, tl.y);
